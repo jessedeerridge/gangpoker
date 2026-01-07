@@ -1,3 +1,5 @@
+
+
 <!DOCTYPE html> 
 <html lang="ja">
 <head>
@@ -19,6 +21,7 @@
   #lobby{padding:20px;border-top:1px solid #eee; position:relative; z-index:2;}
   .copy-btn.copied, .btn.ghost.copied{background:#16a34a;color:#fff;border-color:#16a34a;}
 
+  /* ★ main背景：入室前/入室後で切替 */
   main{
     position:relative;
     height:calc(100vh - 60px);
@@ -31,6 +34,7 @@
   main.prejoin{ background-image:url('maemain.jpg'); }
   main.joined{ background-image:url('maingazo.jpg'); }
 
+  /* ★ 着席ポップ */
   .seat-pop{
     position:fixed;left:50%;bottom:10px;transform:translateX(-50%);
     background:orange;border:1px solid #eee;border-radius:12px;
@@ -46,6 +50,7 @@
   .tab.disabled::after{content:'✕';position:absolute;inset:0;display:grid;place-items:center;font-size:18px;font-weight:700;color:#b91c1c;pointer-events:none;}
   .tab.active{background:#111;color:#fff;border-color:#111;}
 
+  /* ★ ホスト人数選択中：参加者に出す黒ポップ（下固定） */
   .host-selecting-pop{
     position:fixed;left:50%;bottom:10px;transform:translateX(-50%);
     background:rgba(20,20,20,.92);color:#fff;
@@ -56,15 +61,9 @@
   }
   .host-selecting-pop.hidden{display:none;}
 
-  :root{
-    --raise-nametag: 10px;
-    --raise-center:  10px;
-
-    --chipSize: 40px;     /* JSでタグ高に追従 */
-    --chipGap: 8px;
-    --trayCols: 4;
-  }
-
+  /* =========================
+     ★ プレイヤー円配置用（黒リング + 横長楕円）
+     ========================= */
   .player-circle{
     position:relative;
     width:360px;
@@ -87,28 +86,33 @@
   }
   .player-circle.hide-ring::before{ display:none; }
 
+  /* ★ 追加：ネームプレート + 右チップ列をまとめて配置する外枠 */
   .player-wrap{
     position:absolute;
-    left:0; top:0;
-    transform:translate(-50%,-50%);
+    left:0; top:0;                 /* JSで left/top を指定 */
+    transform:translate(-50%,-50%);/* 座標は中心基準 */
     display:flex;
     align-items:center;
-    gap:6px;
-    margin-top: calc(-2 * var(--raise-nametag));
+    gap:6px;                       /* ネームプレートとチップの間 */
   }
 
+  /* ★ 変更：player-tag は「ピル」本体だけにする（絶対配置しない） */
   .player-tag{
-    position:relative;
+    position:relative; /* mini-hand / mycircle の基準 */
     padding:4px 8px;border-radius:999px;background:#f8f8f8;
     border:1px solid #ddd;font-size:12px;white-space:nowrap;
     display:inline-flex;align-items:center;gap:6px;
   }
   .player-tag.me{ background:#111;color:#fff;border-color:#111; }
 
-  .player-chip-row{
+  /* ★ 自分タグ右にチップが増える列 */
+  .my-chip-row{
     display:flex; gap:6px; align-items:center;
   }
 
+  /* =========================
+     ★ mycircle（自分タグ周りの円リング）
+     ========================= */
   .mycircle{
     position:absolute;
     left:50%; top:50%;
@@ -116,12 +120,14 @@
     width:calc(100% + 18px);
     height:calc(100% + 18px);
     border-radius:999px;
-    border:2px solid #111;
-    pointer-events:none;
+    border:2px solid #111;   /* 今は黒 */
+    pointer-events:none;     /* クリック邪魔しない */
     box-sizing:border-box;
   }
+  /* ★ 後で非表示：mycircle にこのクラスを付けるだけ */
   .mycircle.hide-mycircle{ display:none; }
 
+  /* 他プレイヤーのミニカード（ネームタグの下に扇状） */
   .player-tag .mini-hand{
     position:absolute;left:50%;top:100%;
     transform:translate(-50%,3px);
@@ -136,10 +142,12 @@
     box-shadow:0 2px 6px rgba(0,0,0,.15);
   }
 
+  /* 自分の手札表示（大きめ横並び） */
   .my-hand-wrapper{margin-top:16px;text-align:center;}
   .my-hand-title{display:none;}
   .my-hand{display:flex;justify-content:center;gap:8px;margin-top:6px;min-height:100px;}
 
+  /* ★ 追い出し確認ダイアログ */
   .dialog-backdrop{
     position:fixed;inset:0;background:rgba(0,0,0,.35);
     display:flex;align-items:center;justify-content:center;z-index:300;
@@ -153,6 +161,7 @@
   .dialog-box p{margin:0 0 12px;font-size:14px;line-height:1.6;}
   .dialog-buttons{display:flex;justify-content:flex-end;gap:8px;}
 
+  /* ★ ホスト用 設定ボタン（右下固定） */
   .host-settings-btn{
     position:fixed;right:16px;bottom:16px;width:44px;height:44px;border-radius:50%;
     border:1px solid #ddd;background:#fff;box-shadow:0 8px 20px rgba(0,0,0,.18);
@@ -160,6 +169,7 @@
   }
   .host-settings-btn.visible{display:flex;}
 
+  /* ★ 設定ポップ（ホスト専用パネル） */
   .start-pop{
     position:fixed;right:16px;bottom:72px;background:#fff;border:1px solid #ddd;border-radius:12px;
     box-shadow:0 12px 28px rgba(0,0,0,.16);padding:10px 12px;z-index:240;min-width:260px;
@@ -171,12 +181,16 @@
   .start-pop-main{font-size:13px;line-height:1.5;}
   .start-pop-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:4px;flex-wrap:wrap;}
 
+  /* 詳細情報消す用 */
   #roomInfoLobby, #lobby h2, #lobby p {display:none;}
   #lobby.entered{
     display:flex;flex-direction:column;align-items:center;justify-content:center;
     min-height:calc(100vh - 60px);
   }
 
+  /* =========================
+     ★ 追加：左下「？」ボタン
+     ========================= */
   .help-btn{
     position:fixed;left:16px;bottom:16px;width:44px;height:44px;border-radius:50%;
     border:1px solid #111;background:#111;color:#fff;
@@ -186,6 +200,7 @@
   }
   .help-btn.visible{display:flex;}
 
+  /* ★ 追加：ヘルプ一覧ポップ */
   .help-pop-backdrop{
     position:fixed;inset:0;background:rgba(0,0,0,.35);
     display:flex;align-items:flex-end;justify-content:center;
@@ -221,6 +236,9 @@
   .role-desc .name{font-weight:900;margin-bottom:4px;}
   .role-desc .text{font-size:13px;line-height:1.55;color:#222;white-space:pre-wrap;}
 
+  /* =========================
+     ★ 中央「場札(5) + 左に山札」
+     ========================= */
   .center-table{
     position:absolute;
     left:50%; top:50%;
@@ -229,6 +247,7 @@
     pointer-events:none;
   }
 
+  /* 山札（見た目：カード背面を重ねる） */
   .deck-stack{
     width:54px;height:78px;
     position:relative;
@@ -287,6 +306,9 @@
   }
   .board-slot.has-card{ cursor:pointer; }
 
+  /* =========================
+     ★ トランプ面
+     ========================= */
   .pcard{
     width:60px;height:90px;
     border-radius:8px;
@@ -389,16 +411,16 @@
   }
 
   /* =========================
-     ★ 右上：共有チッププール（4x4スロット）
+     ★ 右上：チップ置き場（16枚）
      ========================= */
   .chip-tray{
     position:fixed;
     right:16px;
-    top:68px;
+    top:68px;            /* header下 */
     z-index:260;
     display:grid;
-    grid-template-columns: repeat(4, calc(var(--chipSize) + 0px));
-    gap:var(--chipGap);
+    grid-template-columns: repeat(4, auto);
+    gap:8px;
     padding:10px;
     border-radius:14px;
     background:rgba(255,255,255,.86);
@@ -410,35 +432,7 @@
   }
   .chip-tray.hidden{display:none;}
 
-  .tray-slot{
-    width:var(--chipSize);
-    height:var(--chipSize);
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    border-radius:12px;
-    position:relative;
-  }
-  .tray-slot.is-target{
-    outline:2px solid rgba(17,17,17,.55);
-    outline-offset:2px;
-  }
-
-  .chip-item{
-    width:var(--chipSize);
-    height:var(--chipSize);
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    cursor:grab;
-    touch-action:none;
-  }
-  .chip-item:active{cursor:grabbing;}
-  .chip-item.locked{
-    opacity:.45;
-    cursor:not-allowed;
-  }
-
+  /* ドラッグ中の追従チップ（見た目は同じ） */
   .drag-ghost{
     position:fixed;
     left:0; top:0;
@@ -448,12 +442,17 @@
     filter: drop-shadow(0 10px 18px rgba(0,0,0,.25));
   }
 
+  /* =========================
+     ★ チップSVG（サイズはJSでネームタグ高に合わせる）
+     ========================= */
   svg.chip{
     display:block;
-    width:var(--chipSize);
-    height:var(--chipSize);
+    width:40px; height:40px; /* 初期。入室後にJSで置換 */
+    cursor:grab;
     touch-action:none;
   }
+  .chip-wrap{width:40px;height:40px;display:flex;align-items:center;justify-content:center;}
+  .chip-wrap:active svg.chip{ cursor:grabbing; }
 </style>
 </head>
 <body>
@@ -466,8 +465,9 @@
   </div>
 </header>
 
-<!-- ★ 右上：共有チッププール -->
+<!-- ★ 右上チップ置き場（入室後に表示） -->
 <div id="chipTray" class="chip-tray hidden"></div>
+<!-- ★ ドラッグ追従用 -->
 <div id="chipDragGhost" class="drag-ghost"></div>
 
 <main id="main" class="prejoin">
@@ -555,7 +555,7 @@
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
 import {
-  getDatabase, ref, set, get, update, onValue, remove, runTransaction
+  getDatabase, ref, set, get, update, onValue, remove
 } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
 
 // ▼ Firebase 設定
@@ -587,12 +587,11 @@ const state = {
   room: {},
   game: { started:false, deck: [], boardCodes: [], boardFaceUpCount: 0, deal:null },
 
-  // ★ 共有チップ
-  chipsPool: {},     // { chipId: {type, slot, status, dragBy, dragAt, origSlot, lockBy, lockAt} }
-  chipsOwned: {},    // { playerId: { chipId: {type, gotAt} } }
-
   dealing: false,
   dealShownCounts: null,
+
+  // ★ 自分タグ右に追加したチップ
+  myChips: [] // [{type:'white'|'yellow'|'orange'|'red', id:string}]
 };
 
 const mainEl = document.getElementById('main');
@@ -729,7 +728,8 @@ function updateHostUI(){
 }
 
 /* =========================================================
-   ★ チップSVG
+   ★ チップSVG（参照デザインを縮小して“円形/黒円/スポーク/色ライン”）
+   - 直径はJSで「ネームタグの高さ」と同じに合わせる
    ========================================================= */
 const CHIP_COLORS = {
   white:  { key:"白", fill:"#F7F7F7", stroke:"#CFCFCF" },
@@ -737,6 +737,7 @@ const CHIP_COLORS = {
   orange: { key:"オレンジ", fill:"#FF9A2F", stroke:"#D06B00" },
   red:    { key:"赤", fill:"#FF4B4B", stroke:"#C82828" },
 };
+
 const toRad = d => d * Math.PI / 180;
 function polar(cx, cy, r, angRad){ return { x: cx + Math.cos(angRad)*r, y: cy + Math.sin(angRad)*r }; }
 
@@ -840,497 +841,153 @@ function chipSVG(type, uid){
         </clipPath>
       </defs>
 
+      <!-- ベース -->
       <circle cx="${cx}" cy="${cy}" r="${outerR}" fill="${c.fill}"/>
+
+      <!-- 太スポーク -->
       ${spokesMarkup}
+
+      <!-- 色ライン（黄=1 / 橙=2 / 赤=3 / 白=なし） -->
       ${coloredLines}
+
+      <!-- 外周ストローク -->
       <circle cx="${cx}" cy="${cy}" r="${outerR}" fill="none" stroke="${c.stroke}" stroke-width="${outerStroke}"/>
+
+      <!-- 中の黒円 -->
       <circle cx="${cx}" cy="${cy}" r="${innerCircleR}" fill="none" stroke="#111" stroke-width="${innerStroke}"/>
     </svg>
   `;
 }
 
 /* =========================================================
-   ★ 共有チッププール（4x4）初期化 & 購読
-   ========================================================= */
-const TRAY_COLS = 4;
-const TRAY_SLOTS = 16;
-
-function initialPoolData(){
-  // 16枚：白,黄,橙,赤 を4セット。idは固定（slotと同じ番号）
-  const types = ['white','yellow','orange','red'];
-  const obj = {};
-  for(let slot=0; slot<TRAY_SLOTS; slot++){
-    const chipId = `c${String(slot).padStart(2,'0')}`;
-    obj[chipId] = {
-      type: types[slot % types.length],
-      slot,
-      status: 'pool',      // 'pool' | 'dragging'
-      dragBy: null,
-      dragAt: null,
-      origSlot: null,
-      lockBy: null,
-      lockAt: null
-    };
-  }
-  return obj;
-}
-
-async function ensureChipPoolExists(){
-  if (!state.roomCode) return;
-  const poolRef = ref(db, `rooms/${state.roomCode}/chipsPool`);
-  await runTransaction(poolRef, (cur) => {
-    if (cur === null) return initialPoolData();
-    return cur;
-  });
-}
-
-function subscribeChipsPool(){
-  const poolRef = ref(db, `rooms/${state.roomCode}/chipsPool`);
-  onValue(poolRef, snap => {
-    state.chipsPool = snap.val() || {};
-    renderChipTray();
-    renderHands(); // 所持チップ表示も更新
-    cleanupStaleDraggingIfNeeded();
-  });
-}
-function subscribeChipsOwned(){
-  const ownedRef = ref(db, `rooms/${state.roomCode}/chipsOwned`);
-  onValue(ownedRef, snap => {
-    state.chipsOwned = snap.val() || {};
-    renderHands();
-  });
-}
-
-// draggingが事故で残った時の軽い掃除（誰かが見てる時に戻る）
-async function cleanupStaleDraggingIfNeeded(){
-  if (!state.roomCode) return;
-  const now = Date.now();
-  const updates = {};
-  let changed = false;
-  for (const [chipId, c] of Object.entries(state.chipsPool || {})){
-    if (!c) continue;
-    if (c.status === 'dragging' && typeof c.dragAt === 'number' && (now - c.dragAt > 15000)){
-      const restoreSlot = (typeof c.origSlot === 'number') ? c.origSlot : c.slot;
-      updates[`rooms/${state.roomCode}/chipsPool/${chipId}/status`] = 'pool';
-      updates[`rooms/${state.roomCode}/chipsPool/${chipId}/dragBy`] = null;
-      updates[`rooms/${state.roomCode}/chipsPool/${chipId}/dragAt`] = null;
-      updates[`rooms/${state.roomCode}/chipsPool/${chipId}/origSlot`] = null;
-      updates[`rooms/${state.roomCode}/chipsPool/${chipId}/slot`] = restoreSlot;
-      updates[`rooms/${state.roomCode}/chipsPool/${chipId}/lockBy`] = null;
-      updates[`rooms/${state.roomCode}/chipsPool/${chipId}/lockAt`] = null;
-      changed = true;
-    }
-  }
-  if (changed){
-    await update(ref(db), updates);
-  }
-}
-
-/* =========================================================
-   ★ チッププール描画（tray-slotに割り当て）
-   ========================================================= */
-let trayBuilt = false;
-function buildTraySlotsIfNeeded(){
-  if (trayBuilt) return;
-  trayBuilt = true;
-  chipTray.innerHTML = '';
-  for(let i=0;i<TRAY_SLOTS;i++){
-    const slot = document.createElement('div');
-    slot.className = 'tray-slot';
-    slot.dataset.slot = String(i);
-    chipTray.appendChild(slot);
-  }
-}
-
-function slotToChipIdMap(){
-  const map = Array(TRAY_SLOTS).fill(null);
-  for (const [chipId, c] of Object.entries(state.chipsPool || {})){
-    if (!c) continue;
-    if (c.status !== 'pool') continue; // dragging中は見えない
-    const s = Number(c.slot);
-    if (Number.isFinite(s) && s>=0 && s<TRAY_SLOTS){
-      map[s] = chipId;
-    }
-  }
-  return map;
-}
-
-function renderChipTray(){
-  if (!state.roomCode) return;
-  buildTraySlotsIfNeeded();
-
-  // 自分がドラッグ中はDOM作り直しを避ける（捕捉が切れるので）
-  if (drag.active){
-    drag.pendingTrayRerender = true;
-    return;
-  }
-
-  const slots = chipTray.querySelectorAll('.tray-slot');
-  slots.forEach(s => { s.classList.remove('is-target'); s.innerHTML=''; });
-
-  const map = slotToChipIdMap();
-  for(let slot=0; slot<TRAY_SLOTS; slot++){
-    const chipId = map[slot];
-    if (!chipId) continue;
-    const c = state.chipsPool[chipId];
-    if (!c) continue;
-
-    const item = document.createElement('div');
-    item.className = 'chip-item';
-    item.dataset.chipid = chipId;
-    item.dataset.type = c.type || 'white';
-
-    const lockedByOther = c.lockBy && c.lockBy !== state.userId;
-    if (lockedByOther) item.classList.add('locked');
-
-    item.innerHTML = chipSVG(c.type || 'white', `tray_${chipId}`);
-
-    item.addEventListener('pointerdown', onPoolChipPointerDown);
-item.addEventListener('click', (ev) => { ev.preventDefault(); ev.stopPropagation(); });
-item.addEventListener('dblclick', (ev) => { ev.preventDefault(); ev.stopPropagation(); });
-
-    slots[slot].appendChild(item);
-  }
-
-  setAllChipSizeToTag();
-}
-
-/* =========================================================
-   ★ チップサイズ：ネームタグ高に合わせる
-   ========================================================= */
-function setAllChipSizeToTag(){
-  const myTag = document.querySelector('.player-tag.me');
-  if (!myTag) return;
-  const h = Math.round(myTag.getBoundingClientRect().height);
-  const size = Math.max(28, Math.min(64, h));
-  document.documentElement.style.setProperty('--chipSize', size + 'px');
-}
-
-/* =========================================================
-   ★ プールチップのドラッグ
-   - プール内drop: pushして配置（同期）
-   - プール外: 一旦全員から消す → mycircleなら取得 / それ以外は元位置へ戻す
+   ★ チップドラッグ＆ドロップ
+   - 右上16枚は「元位置に戻る」
+   - mycircleにドロップしたら state.myChips に追加 → 自分タグ“横”に追加表示
    ========================================================= */
 let drag = {
   active:false,
-  pointerId:null, 
-  chipId:null,
   type:null,
-  startSlot:null,
-  startX:0,
-  startY:0,
-  lastX:0,
-  lastY:0,
-  mode:'pool', // 'pool' | 'out'
-  madeDraggingStatus:false,
-  pendingTrayRerender:false,
+  fromEl:null,
+  startRect:null,
+  offsetX:0,
+  offsetY:0,
 };
 
-function clearTrayTarget(){
-  chipTray.querySelectorAll('.tray-slot.is-target').forEach(el => el.classList.remove('is-target'));
-}
-function markTrayTarget(slot){
-  clearTrayTarget();
-  const el = chipTray.querySelector(`.tray-slot[data-slot="${slot}"]`);
-  if (el) el.classList.add('is-target');
-}
+function setAllChipSizeToTag(){
+  // ネームタグの高さと同じ直径にする
+  const myTag = document.querySelector('.player-tag.me');
+  if (!myTag) return;
 
-function getSlotFromPoint(x,y){
-  const el = document.elementFromPoint(x,y);
-  const slotEl = el?.closest?.('.tray-slot');
-  if (!slotEl) return null;
-  if (!chipTray.contains(slotEl)) return null;
-  const s = Number(slotEl.dataset.slot);
-  return Number.isFinite(s) ? s : null;
-}
+  const h = Math.round(myTag.getBoundingClientRect().height);
+  const size = Math.max(28, Math.min(64, h)); // 安全クランプ
+  document.documentElement.style.setProperty('--chipSize', size + 'px');
 
-async function lockChipOrFail(chipId){
-  const chipRef = ref(db, `rooms/${state.roomCode}/chipsPool/${chipId}`);
-  let ok = false;
-  await runTransaction(chipRef, (cur) => {
-    if (!cur) return cur;
-    if (cur.status === 'dragging' && cur.dragBy && cur.dragBy !== state.userId) return; // 他人が持ち出し中
-    if (cur.lockBy && cur.lockBy !== state.userId) return; // ロック中
-    cur.lockBy = state.userId;
-    cur.lockAt = Date.now();
-    ok = true;
-    return cur;
+  // tray内 chip
+  chipTray.querySelectorAll('svg.chip').forEach(svg=>{
+    svg.style.width = size+'px';
+    svg.style.height= size+'px';
   });
-  return ok;
-}
-
-async function unlockChip(chipId){
-  const chipRef = ref(db, `rooms/${state.roomCode}/chipsPool/${chipId}`);
-  await update(chipRef, { lockBy:null, lockAt:null });
-}
-
-async function setDraggingOut(chipId, origSlot){
-  const chipRef = ref(db, `rooms/${state.roomCode}/chipsPool/${chipId}`);
-  await update(chipRef, {
-    status:'dragging',
-    dragBy: state.userId,
-    dragAt: Date.now(),
-    origSlot: origSlot
+  // my-chip-row chip
+  document.querySelectorAll('.my-chip-row svg.chip').forEach(svg=>{
+    svg.style.width = size+'px';
+    svg.style.height= size+'px';
   });
 }
 
-async function restoreToPool(chipId, slot){
-  const chipRef = ref(db, `rooms/${state.roomCode}/chipsPool/${chipId}`);
-  await update(chipRef, {
-    status:'pool',
-    dragBy:null,
-    dragAt:null,
-    origSlot:null,
-    slot: slot,
-    lockBy:null,
-    lockAt:null
+function buildChipTray(){
+  chipTray.innerHTML = '';
+  // 16枚：4色×4回（並びは 白,黄,橙,赤 を4セット）
+  const types = ['white','yellow','orange','red'];
+  let uid = 1;
+  for(let i=0;i<16;i++){
+    const t = types[i % types.length];
+    const wrap = document.createElement('div');
+    wrap.className = 'chip-wrap';
+    wrap.dataset.type = t;
+    wrap.innerHTML = chipSVG(t, 'tray'+(uid++));
+    chipTray.appendChild(wrap);
+  }
+  // pointer操作
+  chipTray.querySelectorAll('.chip-wrap').forEach(w=>{
+    w.addEventListener('pointerdown', onChipPointerDown);
   });
+  setAllChipSizeToTag();
 }
 
-async function acquireToMe(chipId, type){
-  // 共有更新：poolから削除＆ownedへ追加
-  const base = `rooms/${state.roomCode}`;
-  const updates = {};
-  updates[`${base}/chipsPool/${chipId}`] = null;
-  updates[`${base}/chipsOwned/${state.userId}/${chipId}`] = { type, gotAt: Date.now() };
-  await update(ref(db), updates);
-}
+function onChipPointerDown(e){
+  const wrap = e.currentTarget;
+  const svg = wrap.querySelector('svg.chip');
+  if (!svg) return;
 
-function onPoolChipPointerDown(e){
-  const item = e.currentTarget;
-  const chipId = item.dataset.chipid;
-  const type = item.dataset.type || 'white';
-  if (!state.roomCode) return;
-
-  // ★ click由来の挙動を潰す
   e.preventDefault();
   e.stopPropagation();
 
-  // ★ 右クリック等は無視（任意）
-  if (e.button !== undefined && e.button !== 0) return;
+  wrap.setPointerCapture?.(e.pointerId);
 
-  (async () => {
-    const locked = await lockChipOrFail(chipId);
-    if (!locked) return;
+  const rect = svg.getBoundingClientRect();
+  drag.active = true;
+  drag.type = wrap.dataset.type;
+  drag.fromEl = wrap;
+  drag.startRect = rect;
+  drag.offsetX = e.clientX - rect.left;
+  drag.offsetY = e.clientY - rect.top;
 
-    // ★押している間だけドラッグにする：Pointer Capture
-    try { item.setPointerCapture(e.pointerId); } catch {}
+  chipDragGhost.innerHTML = chipSVG(drag.type, 'ghost');
+  const ghostSvg = chipDragGhost.querySelector('svg.chip');
+  ghostSvg.style.width = rect.width+'px';
+  ghostSvg.style.height= rect.height+'px';
 
-    drag.active = true;
-    drag.pointerId = e.pointerId;   // ★追加
-    drag.chipId = chipId;
-    drag.type = type;
-    drag.startSlot = Number(state.chipsPool?.[chipId]?.slot ?? 0);
-    drag.startX = e.clientX;
-    drag.startY = e.clientY;
-    drag.lastX = e.clientX;
-    drag.lastY = e.clientY;
-    drag.mode = 'pool';
-    drag.madeDraggingStatus = false;
-    drag.pendingTrayRerender = false;
-
-    const rect = item.getBoundingClientRect();
-    chipDragGhost.innerHTML = chipSVG(type, 'ghost');
-    chipDragGhost.style.transform = `translate(${rect.left}px, ${rect.top}px)`;
-
-    window.addEventListener('pointermove', onPoolChipPointerMove, {passive:false});
-    window.addEventListener('pointerup', onPoolChipPointerUp, {passive:false});
-    window.addEventListener('pointercancel', onPoolChipPointerUp, {passive:false}); // ★追加
-  })();
+  chipDragGhost.style.transform = `translate(${rect.left}px, ${rect.top}px)`;
+  window.addEventListener('pointermove', onChipPointerMove, {passive:false});
+  window.addEventListener('pointerup', onChipPointerUp, {passive:false});
 }
 
-
-
-function onPoolChipPointerMove(e){
+function onChipPointerMove(e){
   if (!drag.active) return;
-  if (drag.pointerId !== null && e.pointerId !== drag.pointerId) return;
   e.preventDefault();
-
-  drag.lastX = e.clientX;
-  drag.lastY = e.clientY;
-
-  // ゴースト移動
-  const size = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--chipSize')) || 40;
-  chipDragGhost.style.transform = `translate(${e.clientX - size/2}px, ${e.clientY - size/2}px)`;
-
-  const slot = getSlotFromPoint(e.clientX, e.clientY);
-
-  if (slot !== null){
-    // プール内
-    drag.mode = 'pool';
-    markTrayTarget(slot);
-
-    if (drag.madeDraggingStatus){
-      // 外へ出して「消してた」場合は戻す（見えるように）
-      // ※ slotは見た目ターゲット、実slotはDBにあるのでここではstatusだけ戻す
-      restoreToPool(drag.chipId, drag.startSlot).catch(()=>{});
-      drag.madeDraggingStatus = false;
-    }
-  } else {
-    // プール外
-    drag.mode = 'out';
-    clearTrayTarget();
-
-    if (!drag.madeDraggingStatus){
-      // 「取り出したらプールから消える」を同期で実現
-      setDraggingOut(drag.chipId, drag.startSlot).catch(()=>{});
-      drag.madeDraggingStatus = true;
-    }
-  }
+  const x = e.clientX - drag.offsetX;
+  const y = e.clientY - drag.offsetY;
+  chipDragGhost.style.transform = `translate(${x}px, ${y}px)`;
 }
 
 function isPointInsideRect(x,y, r){
   return x>=r.left && x<=r.right && y>=r.top && y<=r.bottom;
 }
 
-function decidePushDirection(){
-  const dx = drag.lastX - drag.startX;
-  const dy = drag.lastY - drag.startY;
-  if (Math.abs(dx) >= Math.abs(dy)){
-    return { axis:'h', dir: dx >= 0 ? +1 : -1 };
-  }
-  return { axis:'v', dir: dy >= 0 ? +1 : -1 };
-}
-
-function computePushMoves(mapSlotToChipId, chipId, fromSlot, toSlot, axis, dir){
-  // mapSlotToChipId: Array[16] -> chipId or null
-  const map = [...mapSlotToChipId];
-  const inRow = (a,b) => Math.floor(a/TRAY_COLS) === Math.floor(b/TRAY_COLS);
-  const inCol = (a,b) => (a%TRAY_COLS) === (b%TRAY_COLS);
-
-  // remove dragged chip from its current slot
-  if (map[fromSlot] === chipId) map[fromSlot] = null;
-
-  const moves = []; // {chipId, slot}
-
-  const placeBack = () => {
-    moves.push({chipId, slot: fromSlot});
-    return moves;
-  };
-
-  if (toSlot < 0 || toSlot >= TRAY_SLOTS) return placeBack();
-
-  if (map[toSlot] === null){
-    moves.push({chipId, slot: toSlot});
-    return moves;
-  }
-
-  const step = (axis === 'h') ? (dir>0 ? 1 : -1) : (dir>0 ? TRAY_COLS : -TRAY_COLS);
-
-  // 探索：押し出しの先に空きがあるか？
-  let cur = toSlot;
-  const chain = [toSlot];
-  while (true){
-    const next = cur + step;
-    if (next < 0 || next >= TRAY_SLOTS) return placeBack();
-
-    if (axis === 'h' && !inRow(cur, next)) return placeBack();
-    if (axis === 'v' && !inCol(cur, next)) return placeBack();
-
-    chain.push(next);
-    if (map[next] === null){
-      // 空き発見
-      break;
-    }
-    cur = next;
-  }
-
-  // chain: [toSlot, ..., emptySlot]
-  // 後ろからシフト
-  for (let i = chain.length - 1; i >= 1; i--){
-    const dst = chain[i];
-    const src = chain[i-1];
-    map[dst] = map[src];
-    if (map[dst]) moves.push({chipId: map[dst], slot: dst});
-  }
-  // dragged chipをtoSlotへ
-  map[toSlot] = chipId;
-  moves.push({chipId, slot: toSlot});
-
-  return moves;
-}
-
-async function applySlotMoves(moves){
-  const base = `rooms/${state.roomCode}/chipsPool`;
-  const updates = {};
-  for (const m of moves){
-    updates[`${base}/${m.chipId}/slot`] = m.slot;
-    updates[`${base}/${m.chipId}/status`] = 'pool';
-    updates[`${base}/${m.chipId}/dragBy`] = null;
-    updates[`${base}/${m.chipId}/dragAt`] = null;
-    updates[`${base}/${m.chipId}/origSlot`] = null;
-    updates[`${base}/${m.chipId}/lockBy`] = null;
-    updates[`${base}/${m.chipId}/lockAt`] = null;
-  }
-  await update(ref(db), updates);
-}
-
-async function onPoolChipPointerUp(e){
+function onChipPointerUp(e){
   if (!drag.active) return;
-  if (drag.pointerId !== null && e.pointerId !== drag.pointerId) return;
   e.preventDefault();
 
-  const chipId = drag.chipId;
-  const type = drag.type;
-  const startSlot = drag.startSlot;
+  // ドロップ判定：mycircleのバウンディングに入っていればOK
+  const mycircle = document.querySelector('.player-tag.me .mycircle');
+  let dropped = false;
 
-  // UIクリア
-  chipDragGhost.innerHTML = '';
-  chipDragGhost.style.transform = `translate(-9999px,-9999px)`;
-  clearTrayTarget();
-
-  window.removeEventListener('pointermove', onPoolChipPointerMove);
-  window.removeEventListener('pointerup', onPoolChipPointerUp);
-
-  try{
-    if (!state.roomCode) return;
-
-    if (drag.mode === 'pool'){
-      const dropSlot = getSlotFromPoint(e.clientX, e.clientY);
-      const toSlot = (dropSlot !== null) ? dropSlot : startSlot;
-
-      const map = slotToChipIdMap();
-      const {axis, dir} = decidePushDirection();
-      const moves = computePushMoves(map, chipId, startSlot, toSlot, axis, dir);
-      await applySlotMoves(moves);
-    } else {
-      // プール外：mycircle判定
-      const mycircle = document.querySelector('.player-tag.me .mycircle');
-      let onMyCircle = false;
-      if (mycircle){
-        const r = mycircle.getBoundingClientRect();
-        onMyCircle = isPointInsideRect(e.clientX, e.clientY, r);
-      }
-
-      if (onMyCircle){
-        await acquireToMe(chipId, type);
-      } else {
-        // それ以外は「元の場所に戻る」
-        await restoreToPool(chipId, startSlot);
-      }
-    }
-  } finally {
-    // ロック解除（念のため）
-    if (state.roomCode && chipId){
-      unlockChip(chipId).catch(()=>{});
-    }
-
-    drag.active = false;
-    drag.pointerId = null; 
-    drag.chipId = null;
-    drag.type = null;
-    drag.startSlot = null;
-    drag.mode = 'pool';
-
-    if (drag.pendingTrayRerender){
-      drag.pendingTrayRerender = false;
-      renderChipTray();
+  if (mycircle){
+    const r = mycircle.getBoundingClientRect();
+    if (isPointInsideRect(e.clientX, e.clientY, r)){
+      dropped = true;
     }
   }
+
+  if (dropped){
+    state.myChips.push({ type: drag.type, id: crypto.randomUUID() });
+    renderHands(); // 右側列を描き直す
+  }
+
+  chipDragGhost.innerHTML = '';
+  chipDragGhost.style.transform = `translate(-9999px,-9999px)`;
+
+  drag.active = false;
+  drag.type = null;
+  drag.fromEl = null;
+  drag.startRect = null;
+
+  window.removeEventListener('pointermove', onChipPointerMove);
+  window.removeEventListener('pointerup', onChipPointerUp);
 }
 
 /* =========================
-   ★ 追加：トランプ52枚デッキ生成（以下、元コードほぼそのまま）
+   ★ 追加：トランプ52枚デッキ生成
    ========================= */
 function buildDeck52(){
   const suits = [{ s:"♠" },{ s:"♥" },{ s:"♦" },{ s:"♣" }];
@@ -1351,6 +1008,9 @@ function shuffleInPlace(arr){
   return arr;
 }
 
+/* =========================
+   ★ カード面描画
+   ========================= */
 function parseCard(code){
   if (!code || typeof code !== 'string') return null;
   const suit = code.slice(0,1);
@@ -1443,6 +1103,9 @@ function createBackCardElement(){
   return el;
 }
 
+/* =========================
+   ★ 山札の“重なり”描画
+   ========================= */
 const STACK_MAX = 15;
 const STACK_OFFSETS = [
   {x:0.0,y:0.0,r: 0.0},{x:0.4,y:0.5,r:-0.3},{x:0.9,y:0.9,r: 0.2},{x:1.2,y:1.5,r:-0.4},
@@ -1473,6 +1136,9 @@ function renderDeckVisual(deckStackEl, deckLen, started){
   if (countEl) countEl.textContent = String(shownLen);
 }
 
+/* =========================
+   ★ 中央UI（山札・場札）描画
+   ========================= */
 function getBoardCodes(){
   const g = state.game || {};
   const codes = Array.isArray(g.boardCodes) ? g.boardCodes : (Array.isArray(g.board) ? g.board : []);
@@ -1530,6 +1196,9 @@ function renderCenterBoard(){
   });
 }
 
+/* =========================
+   ★ 配布アニメ（略：あなたの元コードのまま）
+   ========================= */
 function getDealSeenKey(){ return state.roomCode ? `dealSeen_${state.roomCode}` : `dealSeen_unknown`; }
 function getShownCount(pid){
   if (state.dealing && state.dealShownCounts && typeof state.dealShownCounts[pid] === 'number'){
@@ -1632,6 +1301,9 @@ async function maybePlayDealFromGame(){
   await runDealAnimation(deal.order);
 }
 
+/* =========================
+   ★ 山札/場札クリック（ホスト操作）
+   ========================= */
 async function onDeckClick(e){
   e.preventDefault(); e.stopPropagation();
   if (!state.isHost) return;
@@ -1683,6 +1355,9 @@ async function onBoardClick(e){
   await update(gameRef, { boardFaceUpCount: Math.min(boardCodes.length, faceUpCount + 1) });
 }
 
+/* =========================
+   subscribe
+   ========================= */
 function subscribeRoom(){
   const roomRef = ref(db, `rooms/${state.roomCode}`);
   onValue(roomRef, snap => {
@@ -1788,16 +1463,12 @@ btnJoin.addEventListener('click', async () => {
   subscribeHands();
   subscribeGame();
 
-  // ★ チップ：初期化＆購読
-  chipTray.classList.remove('hidden');
-  buildTraySlotsIfNeeded();
-  await ensureChipPoolExists();
-  subscribeChipsPool();
-  subscribeChipsOwned();
-
   syncSeatUI();
   renderCenterBoard();
 
+  // ★ チップ置き場表示＆生成
+  chipTray.classList.remove('hidden');
+  buildChipTray();
   setTimeout(setAllChipSizeToTag, 30);
 });
 
@@ -1929,22 +1600,14 @@ function subscribePlayers(){
     await syncSeatUI();
     renderPlayerCircle(players);
 
+    // サイズ追従
     setAllChipSizeToTag();
   });
 }
 
 /* =========================================================
-   ★ プレイヤー表示 + 所持チップ（全員分）
+   ★ プレイヤー表示 + 自分タグに mycircle + 右にチップ列（←横に出す）
    ========================================================= */
-function getOwnedList(pid){
-  const owned = state.chipsOwned?.[pid] || {};
-  const list = Object.entries(owned)
-    .map(([chipId, v]) => ({ chipId, ...(v||{}) }))
-    .filter(v => v && v.type)
-    .sort((a,b) => (a.gotAt||0) - (b.gotAt||0));
-  return list;
-}
-
 function renderPlayerCircle(players){
   playerCircle.innerHTML = '';
   if (!players.length) return;
@@ -1981,6 +1644,7 @@ function renderPlayerCircle(players){
     const x = 50 + (rx/100)*100 * Math.cos(angle);
     const y = 50 + (ry/100)*100 * Math.sin(angle);
 
+    // ★ 追加：外枠（絶対配置はここに持たせる）
     const wrap = document.createElement('div');
     wrap.className = 'player-wrap';
     wrap.style.left = `${x}%`;
@@ -1995,10 +1659,25 @@ function renderPlayerCircle(players){
     tag.appendChild(nameSpan);
 
     if (p.id === state.userId){
+      // ★ mycircle（名前タグの周り：そのまま tag 内）
       const myc = document.createElement('div');
       myc.className = 'mycircle';
       tag.appendChild(myc);
+
+      // ★ 右側に追加済みチップ列（←tag ではなく wrap に追加＝横に出る）
+      const row = document.createElement('div');
+      row.className = 'my-chip-row';
+      state.myChips.forEach((c, i2)=>{
+        const cw = document.createElement('div');
+        cw.className = 'chip-wrap';
+        cw.innerHTML = chipSVG(c.type, `my_${i2}`);
+        row.appendChild(cw);
+      });
+
+      wrap.appendChild(tag);
+      wrap.appendChild(row);
     } else {
+      // 他プレイヤーのミニカード（そのまま）
       tag.onclick = () => {
         if (p.id === state.userId) return;
         if (!state.roomCode) return;
@@ -2028,32 +1707,21 @@ function renderPlayerCircle(players){
         }
         tag.appendChild(miniHand);
       }
+
+      wrap.appendChild(tag);
     }
 
-    // ★ 所持チップ表示（全員分）
-    const row = document.createElement('div');
-    row.className = 'player-chip-row';
-    const ownedList = getOwnedList(p.id);
-    ownedList.forEach((c, i2) => {
-      const cw = document.createElement('div');
-      cw.style.width = 'var(--chipSize)';
-      cw.style.height= 'var(--chipSize)';
-      cw.innerHTML = chipSVG(c.type, `owned_${p.id}_${i2}`);
-      row.appendChild(cw);
-    });
-
-    wrap.appendChild(tag);
-    wrap.appendChild(row);
     playerCircle.appendChild(wrap);
   });
 
   renderCenterBoard();
   maybePlayDealFromGame();
+
   setAllChipSizeToTag();
 }
 
 /* =========================
-   ★ 追い出しダイアログ
+   ★ 追い出しダイアログ（そのまま）
    ========================= */
 kickDialog.addEventListener('click', (e) => {
   if (e.target === kickDialog) {
@@ -2097,7 +1765,7 @@ btnKickYes.addEventListener('click', async (e) => {
 });
 
 /* =========================
-   ★ ゲーム開始系
+   ★ ゲーム開始系（そのまま）
    ========================= */
 async function ensureGameExistsIfHost(){
   if (!state.isHost || !state.roomCode) return;
@@ -2129,6 +1797,7 @@ async function startGameDeal(){
     .sort((a,b) => a.seatIndex - b.seatIndex);
 
   const deck = shuffleInPlace(buildDeck52());
+
   const boardCodes = [];
   const boardFaceUpCount = 0;
 
@@ -2169,8 +1838,6 @@ btnResetRoom.addEventListener('click', async () => {
     remove(ref(db, `${base}/tables`)),
     remove(ref(db, `${base}/hands`)),
     remove(ref(db, `${base}/game`)),
-    remove(ref(db, `${base}/chipsPool`)),
-    remove(ref(db, `${base}/chipsOwned`)),
   ]);
   state.seatedTable = null;
   startPop.classList.add('hidden');
@@ -2178,9 +1845,6 @@ btnResetRoom.addEventListener('click', async () => {
 
   state.game = { started:false, deck:[], boardCodes:[], boardFaceUpCount:0, deal:null };
   renderCenterBoard();
-
-  // チップも再初期化
-  await ensureChipPoolExists();
 });
 
 window.addEventListener('load', () => { renderCenterBoard(); });
