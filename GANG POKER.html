@@ -1,0 +1,2190 @@
+<!DOCTYPE html> 
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>テンプレ</title>
+<style>
+  html, body{height:100%; overflow:hidden;}
+  body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:#fff;color:#111;}
+  header{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border-bottom:1px solid #eee; position:sticky; top:0; z-index:400; background:#fff;}
+  h1{margin:0;font-size:18px;}
+  .small{font-size:12px;opacity:.75;}
+  .join-box{display:flex;gap:6px;flex-wrap:wrap;align-items:center;padding:12px; position:relative; z-index:2;}
+  .join-box input{padding:8px;border:1px solid #ddd;border-radius:6px;font-size:16px;}
+  .btn{padding:6px 10px;border:1px solid #ddd;border-radius:6px;background:#f8f8f8;cursor:pointer;}
+  .btn.primary{background:#111;color:#fff;border-color:#111;}
+  .btn.ghost{background:transparent;}
+  .hidden{display:none;}
+  #lobby{padding:20px;border-top:1px solid #eee; position:relative; z-index:2;}
+  .copy-btn.copied, .btn.ghost.copied{background:#16a34a;color:#fff;border-color:#16a34a;}
+
+  main{
+    position:relative;
+    height:calc(100vh - 60px);
+    overflow:auto;
+    -webkit-overflow-scrolling:touch;
+    background-size:cover;
+    background-position:center;
+    background-repeat:no-repeat;
+  }
+  main.prejoin{ background-image:url('maemain.jpg'); }
+  main.joined{ background-image:url('maingazo.jpg'); }
+
+  .seat-pop{
+    position:fixed;left:50%;bottom:10px;transform:translateX(-50%);
+    background:orange;border:1px solid #eee;border-radius:12px;
+    box-shadow:0 12px 28px rgba(0,0,0,.12);
+    padding:10px;z-index:220;display:flex;flex-direction:column;gap:10px;min-width:280px;
+  }
+  .seat-pop.hidden{display:none;}
+  .seat-pop .row{display:flex;gap:8px;align-items:center;}
+  .seat-pop label{width:84px;font-size:13px;}
+  .seat-pop .tabs{display:flex;gap:6px;flex-wrap:wrap;}
+  .tab{padding:6px 10px;border:1px solid #ddd;border-radius:999px;cursor:pointer;user-select:none;position:relative;}
+  .tab.disabled{opacity:.45; pointer-events:none;}
+  .tab.disabled::after{content:'✕';position:absolute;inset:0;display:grid;place-items:center;font-size:18px;font-weight:700;color:#b91c1c;pointer-events:none;}
+  .tab.active{background:#111;color:#fff;border-color:#111;}
+
+  .host-selecting-pop{
+    position:fixed;left:50%;bottom:10px;transform:translateX(-50%);
+    background:rgba(20,20,20,.92);color:#fff;
+    padding:12px 16px;border-radius:14px;
+    box-shadow:0 18px 40px rgba(0,0,0,.35);
+    z-index:225;font-weight:800;white-space:nowrap;
+    pointer-events:none;
+  }
+  .host-selecting-pop.hidden{display:none;}
+
+  :root{
+    --raise-nametag: 10px;
+    --raise-center:  10px;
+
+    --chipSize: 40px;     /* JSでタグ高に追従 */
+    --chipGap: 8px;
+    --trayCols: 4;
+  }
+
+  .player-circle{
+    position:relative;
+    width:360px;
+    height:260px;
+    margin:20px auto 0;
+    box-sizing:border-box;
+    border:none;
+  }
+  .player-circle::before{
+    content:'';
+    position:absolute;
+    left:50%; top:50%;
+    width:100%;
+    height:100%;
+    transform:translate(-50%,-50%);
+    border-radius:999px;
+    border:3px solid #111;
+    pointer-events:none;
+    box-sizing:border-box;
+  }
+  .player-circle.hide-ring::before{ display:none; }
+
+  .player-wrap{
+    position:absolute;
+    left:0; top:0;
+    transform:translate(-50%,-50%);
+    display:flex;
+    align-items:center;
+    gap:6px;
+    margin-top: calc(-2 * var(--raise-nametag));
+  }
+
+  .player-tag{
+    position:relative;
+    padding:4px 8px;border-radius:999px;background:#f8f8f8;
+    border:1px solid #ddd;font-size:12px;white-space:nowrap;
+    display:inline-flex;align-items:center;gap:6px;
+  }
+  .player-tag.me{ background:#111;color:#fff;border-color:#111; }
+
+  .player-chip-row{
+    display:flex; gap:6px; align-items:center;
+  }
+
+  .mycircle{
+    position:absolute;
+    left:50%; top:50%;
+    transform:translate(-50%,-50%);
+    width:calc(100% + 18px);
+    height:calc(100% + 18px);
+    border-radius:999px;
+    border:2px solid #111;
+    pointer-events:none;
+    box-sizing:border-box;
+  }
+  .mycircle.hide-mycircle{ display:none; }
+
+  .player-tag .mini-hand{
+    position:absolute;left:50%;top:100%;
+    transform:translate(-50%,3px);
+    width:60px;height:30px;pointer-events:none;
+  }
+  .player-tag .mini-card{
+    position:absolute;left:50%;top:0;width:16px;height:22px;
+    border-radius:4px;border:1px solid #bbb;
+    background:linear-gradient(135deg,#e5e7eb,#cbd5f5);
+    font-size:10px;display:flex;align-items:center;justify-content:center;
+    transform-origin:bottom center;
+    box-shadow:0 2px 6px rgba(0,0,0,.15);
+  }
+
+  .my-hand-wrapper{margin-top:16px;text-align:center;}
+  .my-hand-title{display:none;}
+  .my-hand{display:flex;justify-content:center;gap:8px;margin-top:6px;min-height:100px;}
+
+  .dialog-backdrop{
+    position:fixed;inset:0;background:rgba(0,0,0,.35);
+    display:flex;align-items:center;justify-content:center;z-index:300;
+  }
+  .dialog-backdrop.hidden{display:none;}
+  .dialog-box{
+    background:#fff;border-radius:12px;padding:16px 18px;
+    box-shadow:0 18px 40px rgba(0,0,0,.35);
+    max-width:320px;width:calc(100% - 40px);
+  }
+  .dialog-box p{margin:0 0 12px;font-size:14px;line-height:1.6;}
+  .dialog-buttons{display:flex;justify-content:flex-end;gap:8px;}
+
+  .host-settings-btn{
+    position:fixed;right:16px;bottom:16px;width:44px;height:44px;border-radius:50%;
+    border:1px solid #ddd;background:#fff;box-shadow:0 8px 20px rgba(0,0,0,.18);
+    display:none;align-items:center;justify-content:center;font-size:22px;cursor:pointer;z-index:230;
+  }
+  .host-settings-btn.visible{display:flex;}
+
+  .start-pop{
+    position:fixed;right:16px;bottom:72px;background:#fff;border:1px solid #ddd;border-radius:12px;
+    box-shadow:0 12px 28px rgba(0,0,0,.16);padding:10px 12px;z-index:240;min-width:260px;
+    display:flex;flex-direction:column;gap:8px;
+  }
+  .start-pop.hidden{display:none;}
+  .start-pop-header{display:flex;justify-content:space-between;align-items:center;gap:8px;}
+  .start-pop-title{font-size:14px;font-weight:600;}
+  .start-pop-main{font-size:13px;line-height:1.5;}
+  .start-pop-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:4px;flex-wrap:wrap;}
+
+  #roomInfoLobby, #lobby h2, #lobby p {display:none;}
+  #lobby.entered{
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    min-height:calc(100vh - 60px);
+  }
+
+  .help-btn{
+    position:fixed;left:16px;bottom:16px;width:44px;height:44px;border-radius:50%;
+    border:1px solid #111;background:#111;color:#fff;
+    box-shadow:0 8px 20px rgba(0,0,0,.18);
+    display:none;align-items:center;justify-content:center;
+    font-size:22px;font-weight:800;cursor:pointer;z-index:230;
+  }
+  .help-btn.visible{display:flex;}
+
+  .help-pop-backdrop{
+    position:fixed;inset:0;background:rgba(0,0,0,.35);
+    display:flex;align-items:flex-end;justify-content:center;
+    z-index:310;
+    padding:16px;
+  }
+  .help-pop-backdrop.hidden{display:none;}
+  .help-pop{
+    width:min(520px, calc(100% - 0px));
+    max-height:min(70vh, 640px);
+    background:#fff;border:1px solid #ddd;border-radius:16px;
+    box-shadow:0 18px 40px rgba(0,0,0,.35);
+    overflow:hidden;
+  }
+  .help-pop-header{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:10px 12px;border-bottom:1px solid #eee;
+  }
+  .help-pop-title{font-weight:800;font-size:14px;}
+  .help-pop-body{padding:12px;overflow:auto;max-height:calc(70vh - 48px);}
+  .role-row{
+    display:flex;gap:12px;align-items:flex-start;
+    padding:10px 0;
+  }
+  .role-card{
+    width:72px;height:108px;border-radius:10px;border:1px solid #ddd;background:#f8f8f8;
+    box-shadow:0 6px 16px rgba(0,0,0,.10);
+    flex:0 0 auto;
+    display:flex;align-items:center;justify-content:center;
+    font-size:12px;font-weight:700;color:#444;
+  }
+  .role-desc{flex:1 1 auto;}
+  .role-desc .name{font-weight:900;margin-bottom:4px;}
+  .role-desc .text{font-size:13px;line-height:1.55;color:#222;white-space:pre-wrap;}
+
+  .center-table{
+    position:absolute;
+    left:50%; top:50%;
+    transform:translate(-50%,-50%);
+    display:flex; align-items:center; gap:10px;
+    pointer-events:none;
+  }
+
+  .deck-stack{
+    width:54px;height:78px;
+    position:relative;
+    border-radius:10px;
+    pointer-events:auto;
+    cursor:pointer;
+  }
+  .deck-stack.empty{
+    outline:1px dashed rgba(255,255,255,.45);
+    outline-offset:-4px;
+    background:rgba(20,20,20,.22);
+    box-shadow:none;
+  }
+  .deck-layer{
+    position:absolute; inset:0;
+    border-radius:10px;
+    border:1px solid rgba(255,255,255,.65);
+    box-shadow:none;
+    overflow:hidden;
+    background:
+      radial-gradient(circle at 50% 50%, rgba(255,255,255,.18), rgba(255,255,255,0) 55%),
+      repeating-linear-gradient(45deg, rgba(255,255,255,.10) 0 2px, rgba(255,255,255,0) 2px 6px),
+      linear-gradient(135deg, rgba(185,28,28,.95), rgba(127,29,29,.95));
+  }
+  .deck-layer::after{
+    content:'';
+    position:absolute; inset:6px;
+    border-radius:8px;
+    border:1px solid rgba(255,255,255,.45);
+    box-shadow:inset 0 0 0 1px rgba(0,0,0,.15);
+  }
+  .deck-count{
+    position:absolute; right:-6px; top:-8px;
+    min-width:22px;height:18px;padding:0 6px;
+    display:flex;align-items:center;justify-content:center;
+    border-radius:999px;
+    background:rgba(0,0,0,.55);
+    color:#fff;font-size:11px;font-weight:900;
+    text-shadow:none;
+    border:1px solid rgba(255,255,255,.25);
+    pointer-events:none;
+  }
+
+  .board-row{ display:flex; gap:8px; pointer-events:auto; }
+  .board-slot{
+    width:48px;height:72px;
+    border-radius:10px;
+    border:none;
+    background:transparent;
+    box-shadow:none;
+    backdrop-filter:none;
+    display:flex;align-items:center;justify-content:center;
+    position:relative;
+    overflow:visible;
+    pointer-events:auto;
+  }
+  .board-slot.has-card{ cursor:pointer; }
+
+  .pcard{
+    width:60px;height:90px;
+    border-radius:8px;
+    border:1px solid #ddd;
+    background:#fff;
+    box-shadow:0 4px 12px rgba(0,0,0,.15);
+    position:relative;
+    overflow:hidden;
+    user-select:none;
+  }
+  .pcard.red{ color:#c1121f; }
+  .pcard.black{ color:#111; }
+
+  .pcard .corner{
+    position:absolute;
+    display:flex;flex-direction:column;align-items:center;
+    font-weight:900;
+    line-height:1;
+    gap:0px;
+  }
+  .pcard .corner .rank{ font-size:10px; }
+  .pcard .corner .suit{ font-size:10px; transform:translateY(-1px); }
+  .pcard .corner.tl{ left:3px; top:3px; }
+  .pcard .corner.br{ right:3px; bottom:3px; transform:rotate(180deg); }
+
+  .pcard .pips{
+    position:absolute;
+    left:10px; right:10px;
+    top:16px; bottom:16px;
+  }
+  .pcard .pip{
+    position:absolute;
+    transform:translate(-50%,-50%);
+    font-weight:900;
+    font-size:12px;
+  }
+  .pcard .pip.flip{ transform:translate(-50%,-50%) rotate(180deg); }
+  .pcard[data-rank="A"] .pip{ font-size:26px; }
+
+  .pcard .face-holder{
+    position:absolute; inset:14px 10px;
+    border-radius:8px;
+    display:flex;align-items:center;justify-content:center;
+    font-weight:1000;
+    font-size:28px;
+    opacity:.20;
+    letter-spacing:.02em;
+  }
+  .pcard .face-suit{
+    position:absolute;
+    left:50%; top:52%;
+    transform:translate(-50%,-50%);
+    font-size:22px;
+    opacity:.35;
+    font-weight:900;
+  }
+
+  .my-card{ width:60px;height:90px; }
+
+  .backcard{
+    width:60px;height:90px;
+    border-radius:8px;
+    border:1px solid rgba(255,255,255,.65);
+    overflow:hidden;
+    background:
+      radial-gradient(circle at 50% 50%, rgba(255,255,255,.18), rgba(255,255,255,0) 55%),
+      repeating-linear-gradient(45deg, rgba(255,255,255,.10) 0 2px, rgba(255,255,255,0) 2px 6px),
+      linear-gradient(135deg, rgba(185,28,28,.95), rgba(127,29,29,.95));
+    box-shadow:0 4px 12px rgba(0,0,0,.15);
+    position:relative;
+  }
+  .backcard::after{
+    content:'';
+    position:absolute;
+    inset:6px;
+    border-radius:6px;
+    border:1px solid rgba(255,255,255,.45);
+    box-shadow:inset 0 0 0 1px rgba(0,0,0,.15);
+  }
+
+  .fly-card{
+    position:fixed;
+    width:60px;height:90px;
+    border-radius:8px;
+    border:1px solid rgba(255,255,255,.65);
+    overflow:hidden;
+    z-index:9999;
+    pointer-events:none;
+    background:
+      radial-gradient(circle at 50% 50%, rgba(255,255,255,.18), rgba(255,255,255,0) 55%),
+      repeating-linear-gradient(45deg, rgba(255,255,255,.10) 0 2px, rgba(255,255,255,0) 2px 6px),
+      linear-gradient(135deg, rgba(185,28,28,.95), rgba(127,29,29,.95));
+  }
+  .fly-card::after{
+    content:'';
+    position:absolute; inset:6px;
+    border-radius:6px;
+    border:1px solid rgba(255,255,255,.45);
+    box-shadow:inset 0 0 0 1px rgba(0,0,0,.15);
+  }
+
+  /* =========================
+     ★ 右上：共有チッププール（4x4スロット）
+     ========================= */
+  .chip-tray{
+    position:fixed;
+    right:16px;
+    top:68px;
+    z-index:260;
+    display:grid;
+    grid-template-columns: repeat(4, calc(var(--chipSize) + 0px));
+    gap:var(--chipGap);
+    padding:10px;
+    border-radius:14px;
+    background:rgba(255,255,255,.86);
+    border:1px solid #eee;
+    backdrop-filter: blur(6px);
+    box-shadow:0 10px 26px rgba(0,0,0,.14);
+    user-select:none;
+    touch-action:none;
+  }
+  .chip-tray.hidden{display:none;}
+
+  .tray-slot{
+    width:var(--chipSize);
+    height:var(--chipSize);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    border-radius:12px;
+    position:relative;
+  }
+  .tray-slot.is-target{
+    outline:2px solid rgba(17,17,17,.55);
+    outline-offset:2px;
+  }
+
+  .chip-item{
+    width:var(--chipSize);
+    height:var(--chipSize);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    cursor:grab;
+    touch-action:none;
+  }
+  .chip-item:active{cursor:grabbing;}
+  .chip-item.locked{
+    opacity:.45;
+    cursor:not-allowed;
+  }
+
+  .drag-ghost{
+    position:fixed;
+    left:0; top:0;
+    z-index:99999;
+    pointer-events:none;
+    transform:translate(-9999px,-9999px);
+    filter: drop-shadow(0 10px 18px rgba(0,0,0,.25));
+  }
+
+  svg.chip{
+    display:block;
+    width:var(--chipSize);
+    height:var(--chipSize);
+    touch-action:none;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>テンプレ</h1>
+  <div style="display:flex;align-items:center;gap:6px;">
+    <div class="small" id="roomInfo"></div>
+    <button class="btn ghost" id="copyLinkBtn">リンクコピー</button>
+  </div>
+</header>
+
+<!-- ★ 右上：共有チッププール -->
+<div id="chipTray" class="chip-tray hidden"></div>
+<div id="chipDragGhost" class="drag-ghost"></div>
+
+<main id="main" class="prejoin">
+  <div class="join-box" id="joinBox">
+    <input id="userName" placeholder="名前（4文字以内）" maxlength="4" />
+    <input id="roomCode" placeholder="ルームコード（未入力で自動生成）" maxlength="12" />
+    <button class="btn primary" id="btnJoin">入室</button>
+  </div>
+
+  <div id="lobby" class="hidden">
+    <h2>ロビー</h2>
+    <div id="roomInfoLobby" style="margin-bottom:8px;"></div>
+    <p>ここにテーブルや情報が表示されます。</p>
+
+    <div id="playerCircle" class="player-circle">
+      <div id="centerTable" class="center-table">
+        <div id="deckStack" class="deck-stack empty" title="山札">
+          <div id="deckCount" class="deck-count">52</div>
+        </div>
+        <div id="boardRow" class="board-row" aria-label="場札">
+          <div class="board-slot" data-slot="0"></div>
+          <div class="board-slot" data-slot="1"></div>
+          <div class="board-slot" data-slot="2"></div>
+          <div class="board-slot" data-slot="3"></div>
+          <div class="board-slot" data-slot="4"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="my-hand-wrapper">
+      <div class="my-hand-title">自分のカード</div>
+      <div id="myHand" class="my-hand"></div>
+    </div>
+  </div>
+</main>
+
+<div id="hostSelectingPop" class="host-selecting-pop hidden">ホストが人数を選択中</div>
+
+<div id="seatPop" class="seat-pop hidden">
+  <div class="row"><label>席を選択</label><div id="seatTabs" class="tabs"></div></div>
+  <div class="row" style="justify-content:flex-end">
+    <button class="btn small ghost" id="btnSeatCancel">観戦</button>
+  </div>
+</div>
+
+<div id="kickDialog" class="dialog-backdrop hidden">
+  <div class="dialog-box" id="kickDialogBox">
+    <p id="kickMessage">既存のプレイヤーを追い出して、着席しますか？</p>
+    <div class="dialog-buttons">
+      <button class="btn ghost" id="btnKickNo">いいえ</button>
+      <button class="btn primary" id="btnKickYes">はい</button>
+    </div>
+  </div>
+</div>
+
+<button id="hostSettingsBtn" class="host-settings-btn" title="設定">⚙</button>
+
+<button id="helpBtn" class="help-btn" title="正体カード一覧">？</button>
+
+<div id="helpBackdrop" class="help-pop-backdrop hidden">
+  <div class="help-pop" role="dialog" aria-modal="true" aria-label="正体カード一覧">
+    <div class="help-pop-header">
+      <div class="help-pop-title">正体カード</div>
+      <button id="btnHelpClose" class="btn ghost" style="padding:2px 6px;font-size:12px;">×</button>
+    </div>
+    <div class="help-pop-body" id="helpBody"></div>
+  </div>
+</div>
+
+<div id="startPop" class="start-pop hidden">
+  <div class="start-pop-header">
+    <div class="start-pop-title">ホスト設定</div>
+    <button id="btnStartPopClose" class="btn ghost" style="padding:2px 6px;font-size:12px;">×</button>
+  </div>
+  <div class="start-pop-main">
+    「スタート」で山札(52)を生成し、全プレイヤーへ2枚ずつ配布。<br>
+    場札は最初0枚です。山札クリックで「裏3枚→場札クリックで順に表→山札で最大5枚」。
+  </div>
+  <div class="start-pop-actions">
+    <button id="btnResetRoom" class="btn ghost">リセット</button>
+    <button id="btnGameStart" class="btn primary">スタート</button>
+  </div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+import {
+  getDatabase, ref, set, get, update, onValue, remove, runTransaction
+} from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
+
+// ▼ Firebase 設定
+const firebaseConfig = {
+  apiKey: "AIzaSyAMeKfMoHt9qOQ2VuUBpkrKuei7yGBbEi8",
+  authDomain: "cheesetheft-fd52f.firebaseapp.com",
+  databaseURL: "https://cheesetheft-fd52f-default-rtdb.firebaseio.com",
+  projectId: "cheesetheft-fd52f",
+  storageBucket: "cheesetheft-fd52f.firebasestorage.app",
+  messagingSenderId: "298688959395",
+  appId: "1:298688959395:web:6ac2c3eb214201f2020016",
+  measurementId: "G-HPDFTCLR8H"
+};
+const app = initializeApp(firebaseConfig);
+const db  = getDatabase(app);
+
+// ★ userId をタブ単位で固定（タブごとに別ID）
+const savedUserId = sessionStorage.getItem('bbUserId') || crypto.randomUUID();
+sessionStorage.setItem('bbUserId', savedUserId);
+
+// ▼ 状態
+const state = {
+  userId: savedUserId,
+  userName: null,
+  roomCode: null,
+  seatedTable: null,
+  isHost: false,
+  hands: {},
+  room: {},
+  game: { started:false, deck: [], boardCodes: [], boardFaceUpCount: 0, deal:null },
+
+  // ★ 共有チップ
+  chipsPool: {},     // { chipId: {type, slot, status, dragBy, dragAt, origSlot, lockBy, lockAt} }
+  chipsOwned: {},    // { playerId: { chipId: {type, gotAt} } }
+
+  dealing: false,
+  dealShownCounts: null,
+};
+
+const mainEl = document.getElementById('main');
+const joinBox = document.getElementById('joinBox');
+const inputName = document.getElementById('userName');
+const inputCode = document.getElementById('roomCode');
+const btnJoin = document.getElementById('btnJoin');
+const lobby = document.getElementById('lobby');
+const roomInfo = document.getElementById('roomInfo');
+const roomInfoLobby = document.getElementById('roomInfoLobby');
+const copyLinkBtn = document.getElementById('copyLinkBtn');
+
+const hostSelectingPop = document.getElementById('hostSelectingPop');
+
+const seatPop = document.getElementById('seatPop');
+const seatTabs = document.getElementById('seatTabs');
+const btnSeatCancel = document.getElementById('btnSeatCancel');
+const seatLabel = seatPop.querySelector('label');
+
+const playerCircle = document.getElementById('playerCircle');
+const myHandEl = document.getElementById('myHand');
+
+const kickDialog = document.getElementById('kickDialog');
+const kickMessage = document.getElementById('kickMessage');
+const btnKickYes = document.getElementById('btnKickYes');
+const btnKickNo = document.getElementById('btnKickNo');
+
+const hostSettingsBtn = document.getElementById('hostSettingsBtn');
+const startPop = document.getElementById('startPop');
+const btnStartPopClose = document.getElementById('btnStartPopClose');
+const btnGameStart = document.getElementById('btnGameStart');
+const btnResetRoom = document.getElementById('btnResetRoom');
+
+const helpBtn = document.getElementById('helpBtn');
+const helpBackdrop = document.getElementById('helpBackdrop');
+const btnHelpClose = document.getElementById('btnHelpClose');
+const helpBody = document.getElementById('helpBody');
+
+const chipTray = document.getElementById('chipTray');
+const chipDragGhost = document.getElementById('chipDragGhost');
+
+const ROLE_HELP = [
+  { name: "カード1", text: "ああああ" },
+  { name: "カード2", text: "いいいい" },
+  { name: "カード3", text: "うううう" },
+  { name: "カード4", text: "うううう" },
+];
+
+function renderHelpList(){
+  helpBody.innerHTML = '';
+  ROLE_HELP.forEach((r, idx) => {
+    const row = document.createElement('div');
+    row.className = 'role-row';
+
+    const card = document.createElement('div');
+    card.className = 'role-card';
+    card.textContent = `CARD ${idx+1}`;
+
+    const desc = document.createElement('div');
+    desc.className = 'role-desc';
+    desc.innerHTML = `
+      <div class="name">${r.name}</div>
+      <div class="text">${r.text}</div>
+    `;
+
+    row.appendChild(card);
+    row.appendChild(desc);
+    helpBody.appendChild(row);
+  });
+}
+function openHelp(){
+  renderHelpList();
+  helpBackdrop.classList.remove('hidden');
+}
+function closeHelp(){
+  helpBackdrop.classList.add('hidden');
+}
+helpBtn.addEventListener('click', () => {
+  if (joinBox.classList.contains('hidden')) openHelp();
+});
+btnHelpClose.addEventListener('click', closeHelp);
+helpBackdrop.addEventListener('click', (e) => {
+  if (e.target === helpBackdrop) closeHelp();
+});
+
+let pendingSeatIndexToSteal = null;
+let pendingSeatPlayerIdToSteal = null;
+let isRenderingSeatTabs = false;
+let latestPlayers = [];
+
+let isDealAnimating = false;
+
+function sleep(ms){ return new Promise(r=>setTimeout(r, ms)); }
+
+function generateRoomCode(length = 6){
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  let code = '';
+  for(let i=0;i<length;i++) code += chars.charAt(Math.floor(Math.random()*chars.length));
+  return code;
+}
+
+async function restoreSeatFromDB(){
+  if (!state.roomCode) return;
+  const tablesRef = ref(db, `rooms/${state.roomCode}/tables`);
+  const snap = await get(tablesRef);
+  const data = snap.val() || {};
+  let mySeatIndex = null;
+
+  for (const [seatIndex, t] of Object.entries(data)) {
+    if (t && t.playerId === state.userId) {
+      mySeatIndex = Number(seatIndex);
+      break;
+    }
+  }
+  if (mySeatIndex !== null) state.seatedTable = mySeatIndex;
+}
+
+function refreshRoomLabels(){
+  if (!state.roomCode || !state.userName) return;
+  const label = state.isHost ? '（ホスト）' : '';
+  const infoText = ` ${state.roomCode},  ${state.userName}${label}`;
+  roomInfo.textContent = infoText;
+  roomInfoLobby.textContent = infoText;
+}
+function updateHostUI(){
+  refreshRoomLabels();
+  if (state.isHost){
+    hostSettingsBtn.classList.add('visible');
+  } else {
+    hostSettingsBtn.classList.remove('visible');
+    startPop.classList.add('hidden');
+  }
+  helpBtn.classList.add('visible');
+}
+
+/* =========================================================
+   ★ チップSVG
+   ========================================================= */
+const CHIP_COLORS = {
+  white:  { key:"白", fill:"#F7F7F7", stroke:"#CFCFCF" },
+  yellow: { key:"黄", fill:"#FFD84A", stroke:"#C9A600" },
+  orange: { key:"オレンジ", fill:"#FF9A2F", stroke:"#D06B00" },
+  red:    { key:"赤", fill:"#FF4B4B", stroke:"#C82828" },
+};
+const toRad = d => d * Math.PI / 180;
+function polar(cx, cy, r, angRad){ return { x: cx + Math.cos(angRad)*r, y: cy + Math.sin(angRad)*r }; }
+
+function spokeSectorsData(cx, cy, rInnerEdge, rOuterEdge, spokeThickness, stepDeg = 60, startDeg = -90){
+  const midR = (rInnerEdge + rOuterEdge) / 2;
+  const halfW = spokeThickness / 2;
+  let halfAngle = Math.asin(Math.min(1, halfW / Math.max(1e-6, midR)));
+  halfAngle = Math.min(halfAngle, Math.PI/2 - 1e-3);
+
+  const out = [];
+  let idx = 0;
+  for(let deg = startDeg; deg < startDeg + 360; deg += stepDeg){
+    const a = toRad(deg);
+    const a1 = a - halfAngle;
+    const a2 = a + halfAngle;
+
+    const pIn1  = polar(cx, cy, rInnerEdge, a1);
+    const pOut1 = polar(cx, cy, rOuterEdge, a1);
+    const pOut2 = polar(cx, cy, rOuterEdge, a2);
+    const pIn2  = polar(cx, cy, rInnerEdge, a2);
+
+    const d = [
+      `M ${pIn1.x.toFixed(2)} ${pIn1.y.toFixed(2)}`,
+      `L ${pOut1.x.toFixed(2)} ${pOut1.y.toFixed(2)}`,
+      `A ${rOuterEdge.toFixed(2)} ${rOuterEdge.toFixed(2)} 0 0 1 ${pOut2.x.toFixed(2)} ${pOut2.y.toFixed(2)}`,
+      `L ${pIn2.x.toFixed(2)} ${pIn2.y.toFixed(2)}`,
+      `A ${rInnerEdge.toFixed(2)} ${rInnerEdge.toFixed(2)} 0 0 0 ${pIn1.x.toFixed(2)} ${pIn1.y.toFixed(2)}`,
+      `Z`
+    ].join(" ");
+
+    out.push({ d, angle: a, idx });
+    idx++;
+  }
+  return out;
+}
+function markerOffsets(lineCount, spokeThickness){
+  if(lineCount <= 0) return [];
+  const spread = spokeThickness * 0.25;
+  if(lineCount === 1) return [0];
+  if(lineCount === 2) return [-spread * 0.75, spread * 0.75];
+  return [-spread, 0, spread];
+}
+function markerLinesMarkup(spokesData, cx, cy, rInnerEdge, rOuterEdge, spokeThickness, lineCount, lineColor, clipId){
+  if(lineCount <= 0) return "";
+  const offsets = markerOffsets(lineCount, spokeThickness);
+  const sw = 2.2;
+
+  const segs = [];
+  for(const sp of spokesData){
+    const a = sp.angle;
+    for(const t of offsets){
+      const daIn  = t / rInnerEdge;
+      const daOut = t / rOuterEdge;
+      const pIn  = polar(cx, cy, rInnerEdge, a + daIn);
+      const pOut = polar(cx, cy, rOuterEdge, a + daOut);
+
+      segs.push(
+        `<path d="M ${pIn.x.toFixed(2)} ${pIn.y.toFixed(2)} L ${pOut.x.toFixed(2)} ${pOut.y.toFixed(2)}"
+           fill="none" stroke="${lineColor}" stroke-width="${sw}"
+           stroke-linecap="round" stroke-linejoin="round" />`
+      );
+    }
+  }
+  return `<g clip-path="url(#${clipId})">${segs.join("")}</g>`;
+}
+function chipSVG(type, uid){
+  const c = CHIP_COLORS[type] || CHIP_COLORS.white;
+
+  const vb = 100;
+  const cx = 50, cy = 50;
+
+  const outerR = 46;
+  const outerStroke = 4;
+
+  const innerCircleR = 33;
+  const innerStroke = 2.2;
+
+  const spokeThickness = 16;
+  const rInnerEdge = innerCircleR + innerStroke/2;
+  const rOuterEdge = outerR - outerStroke/2;
+
+  const spokesData = spokeSectorsData(cx, cy, rInnerEdge, rOuterEdge, spokeThickness, 60, -90);
+  const spokesMarkup = spokesData.map(s => `<path d="${s.d}" fill="#111" />`).join("");
+
+  const lineCount =
+    (c.key === "黄") ? 1 :
+    (c.key === "オレンジ") ? 2 :
+    (c.key === "赤") ? 3 : 0;
+
+  const clipId = `spokes-clip-${uid}`;
+  const coloredLines = markerLinesMarkup(
+    spokesData, cx, cy, rInnerEdge, rOuterEdge, spokeThickness,
+    lineCount, c.fill, clipId
+  );
+
+  return `
+    <svg class="chip" viewBox="0 0 ${vb} ${vb}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="チップ ${c.key}">
+      <defs>
+        <clipPath id="${clipId}">
+          ${spokesData.map(s => `<path d="${s.d}"></path>`).join("")}
+        </clipPath>
+      </defs>
+
+      <circle cx="${cx}" cy="${cy}" r="${outerR}" fill="${c.fill}"/>
+      ${spokesMarkup}
+      ${coloredLines}
+      <circle cx="${cx}" cy="${cy}" r="${outerR}" fill="none" stroke="${c.stroke}" stroke-width="${outerStroke}"/>
+      <circle cx="${cx}" cy="${cy}" r="${innerCircleR}" fill="none" stroke="#111" stroke-width="${innerStroke}"/>
+    </svg>
+  `;
+}
+
+/* =========================================================
+   ★ 共有チッププール（4x4）初期化 & 購読
+   ========================================================= */
+const TRAY_COLS = 4;
+const TRAY_SLOTS = 16;
+
+function initialPoolData(){
+  // 16枚：白,黄,橙,赤 を4セット。idは固定（slotと同じ番号）
+  const types = ['white','yellow','orange','red'];
+  const obj = {};
+  for(let slot=0; slot<TRAY_SLOTS; slot++){
+    const chipId = `c${String(slot).padStart(2,'0')}`;
+    obj[chipId] = {
+      type: types[slot % types.length],
+      slot,
+      status: 'pool',      // 'pool' | 'dragging'
+      dragBy: null,
+      dragAt: null,
+      origSlot: null,
+      lockBy: null,
+      lockAt: null
+    };
+  }
+  return obj;
+}
+
+async function ensureChipPoolExists(){
+  if (!state.roomCode) return;
+  const poolRef = ref(db, `rooms/${state.roomCode}/chipsPool`);
+  await runTransaction(poolRef, (cur) => {
+    if (cur === null) return initialPoolData();
+    return cur;
+  });
+}
+
+function subscribeChipsPool(){
+  const poolRef = ref(db, `rooms/${state.roomCode}/chipsPool`);
+  onValue(poolRef, snap => {
+    state.chipsPool = snap.val() || {};
+    renderChipTray();
+    renderHands(); // 所持チップ表示も更新
+    cleanupStaleDraggingIfNeeded();
+  });
+}
+function subscribeChipsOwned(){
+  const ownedRef = ref(db, `rooms/${state.roomCode}/chipsOwned`);
+  onValue(ownedRef, snap => {
+    state.chipsOwned = snap.val() || {};
+    renderHands();
+  });
+}
+
+// draggingが事故で残った時の軽い掃除（誰かが見てる時に戻る）
+async function cleanupStaleDraggingIfNeeded(){
+  if (!state.roomCode) return;
+  const now = Date.now();
+  const updates = {};
+  let changed = false;
+  for (const [chipId, c] of Object.entries(state.chipsPool || {})){
+    if (!c) continue;
+    if (c.status === 'dragging' && typeof c.dragAt === 'number' && (now - c.dragAt > 15000)){
+      const restoreSlot = (typeof c.origSlot === 'number') ? c.origSlot : c.slot;
+      updates[`rooms/${state.roomCode}/chipsPool/${chipId}/status`] = 'pool';
+      updates[`rooms/${state.roomCode}/chipsPool/${chipId}/dragBy`] = null;
+      updates[`rooms/${state.roomCode}/chipsPool/${chipId}/dragAt`] = null;
+      updates[`rooms/${state.roomCode}/chipsPool/${chipId}/origSlot`] = null;
+      updates[`rooms/${state.roomCode}/chipsPool/${chipId}/slot`] = restoreSlot;
+      updates[`rooms/${state.roomCode}/chipsPool/${chipId}/lockBy`] = null;
+      updates[`rooms/${state.roomCode}/chipsPool/${chipId}/lockAt`] = null;
+      changed = true;
+    }
+  }
+  if (changed){
+    await update(ref(db), updates);
+  }
+}
+
+/* =========================================================
+   ★ チッププール描画（tray-slotに割り当て）
+   ========================================================= */
+let trayBuilt = false;
+function buildTraySlotsIfNeeded(){
+  if (trayBuilt) return;
+  trayBuilt = true;
+  chipTray.innerHTML = '';
+  for(let i=0;i<TRAY_SLOTS;i++){
+    const slot = document.createElement('div');
+    slot.className = 'tray-slot';
+    slot.dataset.slot = String(i);
+    chipTray.appendChild(slot);
+  }
+}
+
+function slotToChipIdMap(){
+  const map = Array(TRAY_SLOTS).fill(null);
+  for (const [chipId, c] of Object.entries(state.chipsPool || {})){
+    if (!c) continue;
+    if (c.status !== 'pool') continue; // dragging中は見えない
+    const s = Number(c.slot);
+    if (Number.isFinite(s) && s>=0 && s<TRAY_SLOTS){
+      map[s] = chipId;
+    }
+  }
+  return map;
+}
+
+function renderChipTray(){
+  if (!state.roomCode) return;
+  buildTraySlotsIfNeeded();
+
+  // 自分がドラッグ中はDOM作り直しを避ける（捕捉が切れるので）
+  if (drag.active){
+    drag.pendingTrayRerender = true;
+    return;
+  }
+
+  const slots = chipTray.querySelectorAll('.tray-slot');
+  slots.forEach(s => { s.classList.remove('is-target'); s.innerHTML=''; });
+
+  const map = slotToChipIdMap();
+  for(let slot=0; slot<TRAY_SLOTS; slot++){
+    const chipId = map[slot];
+    if (!chipId) continue;
+    const c = state.chipsPool[chipId];
+    if (!c) continue;
+
+    const item = document.createElement('div');
+    item.className = 'chip-item';
+    item.dataset.chipid = chipId;
+    item.dataset.type = c.type || 'white';
+
+    const lockedByOther = c.lockBy && c.lockBy !== state.userId;
+    if (lockedByOther) item.classList.add('locked');
+
+    item.innerHTML = chipSVG(c.type || 'white', `tray_${chipId}`);
+
+    item.addEventListener('pointerdown', onPoolChipPointerDown);
+item.addEventListener('click', (ev) => { ev.preventDefault(); ev.stopPropagation(); });
+item.addEventListener('dblclick', (ev) => { ev.preventDefault(); ev.stopPropagation(); });
+
+    slots[slot].appendChild(item);
+  }
+
+  setAllChipSizeToTag();
+}
+
+/* =========================================================
+   ★ チップサイズ：ネームタグ高に合わせる
+   ========================================================= */
+function setAllChipSizeToTag(){
+  const myTag = document.querySelector('.player-tag.me');
+  if (!myTag) return;
+  const h = Math.round(myTag.getBoundingClientRect().height);
+  const size = Math.max(28, Math.min(64, h));
+  document.documentElement.style.setProperty('--chipSize', size + 'px');
+}
+
+/* =========================================================
+   ★ プールチップのドラッグ
+   - プール内drop: pushして配置（同期）
+   - プール外: 一旦全員から消す → mycircleなら取得 / それ以外は元位置へ戻す
+   ========================================================= */
+let drag = {
+  active:false,
+  pointerId:null, 
+  chipId:null,
+  type:null,
+  startSlot:null,
+  startX:0,
+  startY:0,
+  lastX:0,
+  lastY:0,
+  mode:'pool', // 'pool' | 'out'
+  madeDraggingStatus:false,
+  pendingTrayRerender:false,
+};
+
+function clearTrayTarget(){
+  chipTray.querySelectorAll('.tray-slot.is-target').forEach(el => el.classList.remove('is-target'));
+}
+function markTrayTarget(slot){
+  clearTrayTarget();
+  const el = chipTray.querySelector(`.tray-slot[data-slot="${slot}"]`);
+  if (el) el.classList.add('is-target');
+}
+
+function getSlotFromPoint(x,y){
+  const el = document.elementFromPoint(x,y);
+  const slotEl = el?.closest?.('.tray-slot');
+  if (!slotEl) return null;
+  if (!chipTray.contains(slotEl)) return null;
+  const s = Number(slotEl.dataset.slot);
+  return Number.isFinite(s) ? s : null;
+}
+
+async function lockChipOrFail(chipId){
+  const chipRef = ref(db, `rooms/${state.roomCode}/chipsPool/${chipId}`);
+  let ok = false;
+  await runTransaction(chipRef, (cur) => {
+    if (!cur) return cur;
+    if (cur.status === 'dragging' && cur.dragBy && cur.dragBy !== state.userId) return; // 他人が持ち出し中
+    if (cur.lockBy && cur.lockBy !== state.userId) return; // ロック中
+    cur.lockBy = state.userId;
+    cur.lockAt = Date.now();
+    ok = true;
+    return cur;
+  });
+  return ok;
+}
+
+async function unlockChip(chipId){
+  const chipRef = ref(db, `rooms/${state.roomCode}/chipsPool/${chipId}`);
+  await update(chipRef, { lockBy:null, lockAt:null });
+}
+
+async function setDraggingOut(chipId, origSlot){
+  const chipRef = ref(db, `rooms/${state.roomCode}/chipsPool/${chipId}`);
+  await update(chipRef, {
+    status:'dragging',
+    dragBy: state.userId,
+    dragAt: Date.now(),
+    origSlot: origSlot
+  });
+}
+
+async function restoreToPool(chipId, slot){
+  const chipRef = ref(db, `rooms/${state.roomCode}/chipsPool/${chipId}`);
+  await update(chipRef, {
+    status:'pool',
+    dragBy:null,
+    dragAt:null,
+    origSlot:null,
+    slot: slot,
+    lockBy:null,
+    lockAt:null
+  });
+}
+
+async function acquireToMe(chipId, type){
+  // 共有更新：poolから削除＆ownedへ追加
+  const base = `rooms/${state.roomCode}`;
+  const updates = {};
+  updates[`${base}/chipsPool/${chipId}`] = null;
+  updates[`${base}/chipsOwned/${state.userId}/${chipId}`] = { type, gotAt: Date.now() };
+  await update(ref(db), updates);
+}
+
+function onPoolChipPointerDown(e){
+  const item = e.currentTarget;
+  const chipId = item.dataset.chipid;
+  const type = item.dataset.type || 'white';
+  if (!state.roomCode) return;
+
+  // ★ click由来の挙動を潰す
+  e.preventDefault();
+  e.stopPropagation();
+
+  // ★ 右クリック等は無視（任意）
+  if (e.button !== undefined && e.button !== 0) return;
+
+  (async () => {
+    const locked = await lockChipOrFail(chipId);
+    if (!locked) return;
+
+    // ★押している間だけドラッグにする：Pointer Capture
+    try { item.setPointerCapture(e.pointerId); } catch {}
+
+    drag.active = true;
+    drag.pointerId = e.pointerId;   // ★追加
+    drag.chipId = chipId;
+    drag.type = type;
+    drag.startSlot = Number(state.chipsPool?.[chipId]?.slot ?? 0);
+    drag.startX = e.clientX;
+    drag.startY = e.clientY;
+    drag.lastX = e.clientX;
+    drag.lastY = e.clientY;
+    drag.mode = 'pool';
+    drag.madeDraggingStatus = false;
+    drag.pendingTrayRerender = false;
+
+    const rect = item.getBoundingClientRect();
+    chipDragGhost.innerHTML = chipSVG(type, 'ghost');
+    chipDragGhost.style.transform = `translate(${rect.left}px, ${rect.top}px)`;
+
+    window.addEventListener('pointermove', onPoolChipPointerMove, {passive:false});
+    window.addEventListener('pointerup', onPoolChipPointerUp, {passive:false});
+    window.addEventListener('pointercancel', onPoolChipPointerUp, {passive:false}); // ★追加
+  })();
+}
+
+
+
+function onPoolChipPointerMove(e){
+  if (!drag.active) return;
+  if (drag.pointerId !== null && e.pointerId !== drag.pointerId) return;
+  e.preventDefault();
+
+  drag.lastX = e.clientX;
+  drag.lastY = e.clientY;
+
+  // ゴースト移動
+  const size = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--chipSize')) || 40;
+  chipDragGhost.style.transform = `translate(${e.clientX - size/2}px, ${e.clientY - size/2}px)`;
+
+  const slot = getSlotFromPoint(e.clientX, e.clientY);
+
+  if (slot !== null){
+    // プール内
+    drag.mode = 'pool';
+    markTrayTarget(slot);
+
+    if (drag.madeDraggingStatus){
+      // 外へ出して「消してた」場合は戻す（見えるように）
+      // ※ slotは見た目ターゲット、実slotはDBにあるのでここではstatusだけ戻す
+      restoreToPool(drag.chipId, drag.startSlot).catch(()=>{});
+      drag.madeDraggingStatus = false;
+    }
+  } else {
+    // プール外
+    drag.mode = 'out';
+    clearTrayTarget();
+
+    if (!drag.madeDraggingStatus){
+      // 「取り出したらプールから消える」を同期で実現
+      setDraggingOut(drag.chipId, drag.startSlot).catch(()=>{});
+      drag.madeDraggingStatus = true;
+    }
+  }
+}
+
+function isPointInsideRect(x,y, r){
+  return x>=r.left && x<=r.right && y>=r.top && y<=r.bottom;
+}
+
+function decidePushDirection(){
+  const dx = drag.lastX - drag.startX;
+  const dy = drag.lastY - drag.startY;
+  if (Math.abs(dx) >= Math.abs(dy)){
+    return { axis:'h', dir: dx >= 0 ? +1 : -1 };
+  }
+  return { axis:'v', dir: dy >= 0 ? +1 : -1 };
+}
+
+function computePushMoves(mapSlotToChipId, chipId, fromSlot, toSlot, axis, dir){
+  // mapSlotToChipId: Array[16] -> chipId or null
+  const map = [...mapSlotToChipId];
+  const inRow = (a,b) => Math.floor(a/TRAY_COLS) === Math.floor(b/TRAY_COLS);
+  const inCol = (a,b) => (a%TRAY_COLS) === (b%TRAY_COLS);
+
+  // remove dragged chip from its current slot
+  if (map[fromSlot] === chipId) map[fromSlot] = null;
+
+  const moves = []; // {chipId, slot}
+
+  const placeBack = () => {
+    moves.push({chipId, slot: fromSlot});
+    return moves;
+  };
+
+  if (toSlot < 0 || toSlot >= TRAY_SLOTS) return placeBack();
+
+  if (map[toSlot] === null){
+    moves.push({chipId, slot: toSlot});
+    return moves;
+  }
+
+  const step = (axis === 'h') ? (dir>0 ? 1 : -1) : (dir>0 ? TRAY_COLS : -TRAY_COLS);
+
+  // 探索：押し出しの先に空きがあるか？
+  let cur = toSlot;
+  const chain = [toSlot];
+  while (true){
+    const next = cur + step;
+    if (next < 0 || next >= TRAY_SLOTS) return placeBack();
+
+    if (axis === 'h' && !inRow(cur, next)) return placeBack();
+    if (axis === 'v' && !inCol(cur, next)) return placeBack();
+
+    chain.push(next);
+    if (map[next] === null){
+      // 空き発見
+      break;
+    }
+    cur = next;
+  }
+
+  // chain: [toSlot, ..., emptySlot]
+  // 後ろからシフト
+  for (let i = chain.length - 1; i >= 1; i--){
+    const dst = chain[i];
+    const src = chain[i-1];
+    map[dst] = map[src];
+    if (map[dst]) moves.push({chipId: map[dst], slot: dst});
+  }
+  // dragged chipをtoSlotへ
+  map[toSlot] = chipId;
+  moves.push({chipId, slot: toSlot});
+
+  return moves;
+}
+
+async function applySlotMoves(moves){
+  const base = `rooms/${state.roomCode}/chipsPool`;
+  const updates = {};
+  for (const m of moves){
+    updates[`${base}/${m.chipId}/slot`] = m.slot;
+    updates[`${base}/${m.chipId}/status`] = 'pool';
+    updates[`${base}/${m.chipId}/dragBy`] = null;
+    updates[`${base}/${m.chipId}/dragAt`] = null;
+    updates[`${base}/${m.chipId}/origSlot`] = null;
+    updates[`${base}/${m.chipId}/lockBy`] = null;
+    updates[`${base}/${m.chipId}/lockAt`] = null;
+  }
+  await update(ref(db), updates);
+}
+
+async function onPoolChipPointerUp(e){
+  if (!drag.active) return;
+  if (drag.pointerId !== null && e.pointerId !== drag.pointerId) return;
+  e.preventDefault();
+
+  const chipId = drag.chipId;
+  const type = drag.type;
+  const startSlot = drag.startSlot;
+
+  // UIクリア
+  chipDragGhost.innerHTML = '';
+  chipDragGhost.style.transform = `translate(-9999px,-9999px)`;
+  clearTrayTarget();
+
+  window.removeEventListener('pointermove', onPoolChipPointerMove);
+  window.removeEventListener('pointerup', onPoolChipPointerUp);
+
+  try{
+    if (!state.roomCode) return;
+
+    if (drag.mode === 'pool'){
+      const dropSlot = getSlotFromPoint(e.clientX, e.clientY);
+      const toSlot = (dropSlot !== null) ? dropSlot : startSlot;
+
+      const map = slotToChipIdMap();
+      const {axis, dir} = decidePushDirection();
+      const moves = computePushMoves(map, chipId, startSlot, toSlot, axis, dir);
+      await applySlotMoves(moves);
+    } else {
+      // プール外：mycircle判定
+      const mycircle = document.querySelector('.player-tag.me .mycircle');
+      let onMyCircle = false;
+      if (mycircle){
+        const r = mycircle.getBoundingClientRect();
+        onMyCircle = isPointInsideRect(e.clientX, e.clientY, r);
+      }
+
+      if (onMyCircle){
+        await acquireToMe(chipId, type);
+      } else {
+        // それ以外は「元の場所に戻る」
+        await restoreToPool(chipId, startSlot);
+      }
+    }
+  } finally {
+    // ロック解除（念のため）
+    if (state.roomCode && chipId){
+      unlockChip(chipId).catch(()=>{});
+    }
+
+    drag.active = false;
+    drag.pointerId = null; 
+    drag.chipId = null;
+    drag.type = null;
+    drag.startSlot = null;
+    drag.mode = 'pool';
+
+    if (drag.pendingTrayRerender){
+      drag.pendingTrayRerender = false;
+      renderChipTray();
+    }
+  }
+}
+
+/* =========================
+   ★ 追加：トランプ52枚デッキ生成（以下、元コードほぼそのまま）
+   ========================= */
+function buildDeck52(){
+  const suits = [{ s:"♠" },{ s:"♥" },{ s:"♦" },{ s:"♣" }];
+  const ranks = ["A","2","3","4","5","6","7","8","9","10","J","Q","K"];
+  const deck = [];
+  for (const su of suits){
+    for (const r of ranks){
+      deck.push(`${su.s}${r}`);
+    }
+  }
+  return deck;
+}
+function shuffleInPlace(arr){
+  for (let i = arr.length - 1; i > 0; i--){
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+function parseCard(code){
+  if (!code || typeof code !== 'string') return null;
+  const suit = code.slice(0,1);
+  const rank = code.slice(1);
+  const isRed = (suit === '♥' || suit === '♦');
+  return { suit, rank, isRed };
+}
+function pipToPercent(row, col){
+  const rows = 5, cols = 3;
+  const x = (col + 0.5) / cols * 100;
+  const y = (row + 0.5) / rows * 100;
+  return { x, y };
+}
+const PIP_LAYOUT = {
+  2: [[0,1],[4,1]],
+  3: [[0,1],[2,1],[4,1]],
+  4: [[0,0],[0,2],[4,0],[4,2]],
+  5: [[0,0],[0,2],[2,1],[4,0],[4,2]],
+  6: [[0,0],[0,2],[2,0],[2,2],[4,0],[4,2]],
+  7: [[0,0],[0,2],[0,1],[2,0],[2,2],[4,0],[4,2]],
+  8: [[0,0],[0,2],[1,1],[2,0],[2,2],[3,1],[4,0],[4,2]],
+  9: [[0,0],[0,2],[1,1],[2,0],[2,2],[2,1],[3,1],[4,0],[4,2]],
+  10:[[0,0],[0,2],[1,1],[1,0],[1,2],[3,0],[3,2],[3,1],[4,0],[4,2]]
+};
+function createCardElement(code){
+  const c = parseCard(code);
+  if (!c) return document.createElement('div');
+
+  const el = document.createElement('div');
+  el.className = `pcard ${c.isRed ? 'red' : 'black'}`;
+  el.dataset.rank = c.rank;
+  el.dataset.suit = c.suit;
+
+  const cornerTL = document.createElement('div');
+  cornerTL.className = 'corner tl';
+  cornerTL.innerHTML = `<div class="rank">${c.rank}</div><div class="suit">${c.suit}</div>`;
+
+  const cornerBR = document.createElement('div');
+  cornerBR.className = 'corner br';
+  cornerBR.innerHTML = `<div class="rank">${c.rank}</div><div class="suit">${c.suit}</div>`;
+
+  el.appendChild(cornerTL);
+  el.appendChild(cornerBR);
+
+  const rankNum = (c.rank === 'A') ? 1 : Number(c.rank);
+  const isFace = (c.rank === 'J' || c.rank === 'Q' || c.rank === 'K');
+
+  const pips = document.createElement('div');
+  pips.className = 'pips';
+
+  if (isFace){
+    const face = document.createElement('div');
+    face.className = 'face-holder';
+    face.textContent = c.rank;
+
+    const fs = document.createElement('div');
+    fs.className = 'face-suit';
+    fs.textContent = c.suit;
+
+    el.appendChild(face);
+    el.appendChild(fs);
+  } else {
+    if (c.rank === 'A'){
+      const {x,y} = pipToPercent(2,1);
+      const pip = document.createElement('div');
+      pip.className = 'pip';
+      pip.style.left = `${x}%`;
+      pip.style.top  = `${y}%`;
+      pip.textContent = c.suit;
+      pips.appendChild(pip);
+    } else {
+      const layout = PIP_LAYOUT[rankNum] || [];
+      layout.forEach(([r, col]) => {
+        const {x,y} = pipToPercent(r,col);
+        const pip = document.createElement('div');
+        pip.className = 'pip' + (r >= 3 ? ' flip' : '');
+        pip.style.left = `${x}%`;
+        pip.style.top  = `${y}%`;
+        pip.textContent = c.suit;
+        pips.appendChild(pip);
+      });
+    }
+    el.appendChild(pips);
+  }
+  return el;
+}
+function createBackCardElement(){
+  const el = document.createElement('div');
+  el.className = 'backcard';
+  return el;
+}
+
+const STACK_MAX = 15;
+const STACK_OFFSETS = [
+  {x:0.0,y:0.0,r: 0.0},{x:0.4,y:0.5,r:-0.3},{x:0.9,y:0.9,r: 0.2},{x:1.2,y:1.5,r:-0.4},
+  {x:1.8,y:1.9,r: 0.5},{x:2.2,y:2.5,r:-0.2},{x:2.8,y:2.9,r: 0.4},{x:3.1,y:3.6,r:-0.6},
+  {x:3.7,y:4.0,r: 0.3},{x:4.2,y:4.6,r:-0.3},{x:4.8,y:5.0,r: 0.6},{x:5.2,y:5.7,r:-0.4},
+  {x:5.8,y:6.1,r: 0.4},{x:6.2,y:6.8,r:-0.2},{x:6.8,y:7.2,r: 0.2},
+];
+function calcStackLayers(deckLen){
+  const removed = 52 - deckLen;
+  const layers = STACK_MAX - Math.floor(removed / 2);
+  return Math.max(1, Math.min(STACK_MAX, layers));
+}
+function renderDeckVisual(deckStackEl, deckLen, started){
+  const shownLen = started ? deckLen : 52;
+  deckStackEl.classList.toggle('empty', started && shownLen === 0);
+
+  const countEl = deckStackEl.querySelector('#deckCount');
+  deckStackEl.querySelectorAll('.deck-layer').forEach(n => n.remove());
+
+  const layers = (started && shownLen === 0) ? 0 : calcStackLayers(shownLen);
+  for (let i = layers - 1; i >= 0; i--){
+    const layer = document.createElement('div');
+    layer.className = 'deck-layer';
+    const o = STACK_OFFSETS[i] || {x:0,y:0,r:0};
+    layer.style.transform = `translate(${o.x}px, ${o.y}px) rotate(${o.r}deg)`;
+    deckStackEl.insertBefore(layer, countEl);
+  }
+  if (countEl) countEl.textContent = String(shownLen);
+}
+
+function getBoardCodes(){
+  const g = state.game || {};
+  const codes = Array.isArray(g.boardCodes) ? g.boardCodes : (Array.isArray(g.board) ? g.board : []);
+  return codes.filter(Boolean);
+}
+function getBoardFaceUpCount(){
+  const g = state.game || {};
+  const n = Number(g.boardFaceUpCount || 0);
+  return Number.isFinite(n) ? n : 0;
+}
+function attachCenterInteractions(){
+  const deckStackEl = playerCircle.querySelector('#deckStack');
+  if (deckStackEl && !deckStackEl.dataset.bound){
+    deckStackEl.dataset.bound = '1';
+    deckStackEl.addEventListener('click', onDeckClick);
+  }
+  const boardRowEl = playerCircle.querySelector('#boardRow');
+  if (boardRowEl && !boardRowEl.dataset.bound){
+    boardRowEl.dataset.bound = '1';
+    boardRowEl.addEventListener('click', onBoardClick);
+  }
+}
+function renderCenterBoard(){
+  const deckStackEl = playerCircle.querySelector('#deckStack');
+  const boardRowEl  = playerCircle.querySelector('#boardRow');
+  if (!deckStackEl || !boardRowEl) return;
+
+  attachCenterInteractions();
+
+  const started = !!state.game?.started;
+  const deck = Array.isArray(state.game?.deck) ? state.game.deck : [];
+  const boardCodes = started ? getBoardCodes() : [];
+  const faceUpCount = started ? Math.min(getBoardFaceUpCount(), boardCodes.length) : 0;
+
+  renderDeckVisual(deckStackEl, started ? deck.length : 52, started);
+
+  const slots = boardRowEl.querySelectorAll('.board-slot');
+  slots.forEach((slot, i) => {
+    slot.innerHTML = '';
+    slot.classList.remove('has-card');
+
+    if (!started) return;
+    if (i < boardCodes.length){
+      slot.classList.add('has-card');
+      if (i < faceUpCount){
+        const cardEl = createCardElement(boardCodes[i]);
+        cardEl.style.width = '48px';
+        cardEl.style.height = '72px';
+        slot.appendChild(cardEl);
+      } else {
+        const back = createBackCardElement();
+        slot.appendChild(back);
+      }
+    }
+  });
+}
+
+function getDealSeenKey(){ return state.roomCode ? `dealSeen_${state.roomCode}` : `dealSeen_unknown`; }
+function getShownCount(pid){
+  if (state.dealing && state.dealShownCounts && typeof state.dealShownCounts[pid] === 'number'){
+    return state.dealShownCounts[pid];
+  }
+  const handData = state.hands[pid];
+  return (handData && Array.isArray(handData.cards)) ? handData.cards.length : 0;
+}
+async function waitForTags(order){
+  for (let i=0; i<40; i++){
+    const ok = order.every(pid => document.querySelector(`.player-tag[data-pid="${pid}"]`));
+    if (ok) return true;
+    await sleep(50);
+  }
+  return false;
+}
+async function animateOneFly(startX, startY, endX, endY, extraRot=0){
+  const el = document.createElement('div');
+  el.className = 'fly-card';
+  el.style.left = '0px';
+  el.style.top  = '0px';
+  document.body.appendChild(el);
+
+  const halfW = 30, halfH = 45;
+  const sx = startX - halfW, sy = startY - halfH;
+  const ex = endX - halfW,   ey = endY - halfH;
+  const mx = (sx + ex) / 2;
+  const my = (sy + ey) / 2 - 60;
+
+  const anim = el.animate([
+    { transform:`translate(${sx}px, ${sy}px) rotate(${0+extraRot}deg) scale(1)` },
+    { transform:`translate(${mx}px, ${my}px) rotate(${2+extraRot}deg) scale(1.02)` },
+    { transform:`translate(${ex}px, ${ey}px) rotate(${0+extraRot}deg) scale(1)` },
+  ], { duration: 380, easing: 'cubic-bezier(.22,.84,.44,1)', fill: 'forwards' });
+
+  await anim.finished.catch(()=>{});
+  el.remove();
+}
+async function runDealAnimation(order){
+  if (isDealAnimating) return;
+  isDealAnimating = true;
+
+  state.dealShownCounts = {};
+  order.forEach(pid => state.dealShownCounts[pid] = 0);
+
+  state.dealing = true;
+  renderHands();
+
+  try{
+    const deckEl = document.getElementById('deckStack');
+    if (!deckEl) return;
+
+    const d = deckEl.getBoundingClientRect();
+    const startX = d.left + d.width/2;
+    const startY = d.top  + d.height/2;
+
+    for (let round=0; round<2; round++){
+      for (let i=0; i<order.length; i++){
+        const pid = order[i];
+        const tag = document.querySelector(`.player-tag[data-pid="${pid}"]`);
+        if (!tag) continue;
+
+        const tr = tag.getBoundingClientRect();
+        const endX = tr.left + tr.width/2;
+        const endY = tr.top + tr.height/2 + 26;
+
+        await animateOneFly(startX, startY, endX, endY, (i%2===0? -1: 1));
+        state.dealShownCounts[pid] = (state.dealShownCounts[pid] ?? 0) + 1;
+        renderHands();
+        await sleep(70);
+      }
+      await sleep(140);
+    }
+  } finally {
+    state.dealing = false;
+    state.dealShownCounts = null;
+    isDealAnimating = false;
+    renderHands();
+  }
+}
+async function maybePlayDealFromGame(){
+  const started = !!state.game?.started;
+  const deal = state.game?.deal;
+  if (!started || !deal || !deal.id || !Array.isArray(deal.order)) return;
+
+  const at = typeof deal.at === 'number' ? deal.at : deal.id;
+  if (Date.now() - at > 20000) {
+    sessionStorage.setItem(getDealSeenKey(), String(deal.id));
+    return;
+  }
+
+  const seen = sessionStorage.getItem(getDealSeenKey());
+  if (seen === String(deal.id)) return;
+
+  sessionStorage.setItem(getDealSeenKey(), String(deal.id));
+
+  const ok = await waitForTags(deal.order);
+  if (!ok) return;
+
+  await runDealAnimation(deal.order);
+}
+
+async function onDeckClick(e){
+  e.preventDefault(); e.stopPropagation();
+  if (!state.isHost) return;
+  if (!state.roomCode) return;
+
+  const gameRef = ref(db, `rooms/${state.roomCode}/game`);
+  const snap = await get(gameRef);
+  const g = snap.val() || { started:false, deck:[], boardCodes:[], boardFaceUpCount:0 };
+  if (!g.started) return;
+
+  const deck = Array.isArray(g.deck) ? [...g.deck] : [];
+  const boardCodes = Array.isArray(g.boardCodes) ? [...g.boardCodes] : [];
+  const faceUpCount = Number(g.boardFaceUpCount || 0);
+
+  if (boardCodes.length === 0){
+    if (deck.length < 3) return;
+    const drawn = deck.splice(0, 3);
+    await update(gameRef, { deck, boardCodes: drawn, boardFaceUpCount: 0 });
+    return;
+  }
+
+  const allFaceUp = (faceUpCount >= boardCodes.length);
+  if (allFaceUp && boardCodes.length < 5){
+    if (deck.length < 1) return;
+    const c = deck.shift();
+    boardCodes.push(c);
+    await update(gameRef, { deck, boardCodes, boardFaceUpCount: boardCodes.length });
+  }
+}
+async function onBoardClick(e){
+  e.preventDefault(); e.stopPropagation();
+  if (!state.isHost) return;
+  if (!state.roomCode) return;
+
+  const slot = e.target.closest('.board-slot');
+  if (!slot) return;
+
+  const gameRef = ref(db, `rooms/${state.roomCode}/game`);
+  const snap = await get(gameRef);
+  const g = snap.val() || { started:false, deck:[], boardCodes:[], boardFaceUpCount:0 };
+  if (!g.started) return;
+
+  const boardCodes = Array.isArray(g.boardCodes) ? [...g.boardCodes] : [];
+  const faceUpCount = Number(g.boardFaceUpCount || 0);
+
+  if (boardCodes.length === 0) return;
+  if (faceUpCount >= boardCodes.length) return;
+
+  await update(gameRef, { boardFaceUpCount: Math.min(boardCodes.length, faceUpCount + 1) });
+}
+
+function subscribeRoom(){
+  const roomRef = ref(db, `rooms/${state.roomCode}`);
+  onValue(roomRef, snap => {
+    state.room = snap.val() || {};
+    const waiting = (!state.isHost && !state.room.maxPlayers);
+    hostSelectingPop.classList.toggle('hidden', !waiting);
+    syncSeatUI();
+  });
+}
+function subscribeHostState(){
+  const hostRef = ref(db, `rooms/${state.roomCode}/hostId`);
+  onValue(hostRef, snap => {
+    const hostId = snap.val();
+    state.isHost = (hostId === state.userId);
+    updateHostUI();
+    syncSeatUI();
+  });
+}
+function subscribeHands(){
+  const handsRef = ref(db, `rooms/${state.roomCode}/hands`);
+  onValue(handsRef, snap => {
+    state.hands = snap.val() || {};
+    renderHands();
+  });
+}
+function subscribeGame(){
+  const gameRef = ref(db, `rooms/${state.roomCode}/game`);
+  onValue(gameRef, snap => {
+    const v = snap.val();
+    const base = { started:false, deck:[], boardCodes:[], boardFaceUpCount:0, deal:null };
+    state.game = v ? { ...base, ...v } : base;
+    renderCenterBoard();
+    maybePlayDealFromGame();
+  });
+}
+
+/* =========================
+   ★ 手札描画
+   ========================= */
+function renderMyHand(){
+  myHandEl.innerHTML = '';
+  const myId = state.userId;
+  const handData = state.hands[myId];
+  const finalCards = (handData && Array.isArray(handData.cards)) ? handData.cards : [];
+  const shownCount = getShownCount(myId);
+
+  for (let i=0; i<shownCount; i++){
+    const wrap = document.createElement('div');
+    wrap.className = 'my-card';
+    const code = finalCards[i];
+    const cardEl = code ? createCardElement(code) : createBackCardElement();
+    wrap.appendChild(cardEl);
+    myHandEl.appendChild(wrap);
+  }
+}
+
+function renderHands(){
+  renderMyHand();
+  if (latestPlayers.length) renderPlayerCircle(latestPlayers);
+}
+
+/* =========================================================
+   ★ 入室
+   ========================================================= */
+const urlParams = new URLSearchParams(window.location.search);
+const roomFromUrl = urlParams.get('room');
+if(roomFromUrl) inputCode.value = roomFromUrl;
+
+btnJoin.addEventListener('click', async () => {
+  state.userName = inputName.value || '名無し';
+  state.roomCode = inputCode.value.trim() || generateRoomCode();
+
+  await set(ref(db, `rooms/${state.roomCode}/users/${state.userId}`), {
+    name: state.userName,
+    joinedAt: Date.now()
+  });
+
+  const roomRef = ref(db, `rooms/${state.roomCode}`);
+  const roomSnap = await get(roomRef);
+  const roomData = roomSnap.val();
+
+  if(!roomData || !roomData.hostId){
+    await update(roomRef, { hostId: state.userId });
+    state.isHost = true;
+  } else {
+    state.isHost = (roomData.hostId === state.userId);
+  }
+
+  updateHostUI();
+
+  mainEl.classList.remove('prejoin');
+  mainEl.classList.add('joined');
+
+  joinBox.classList.add('hidden');
+  lobby.classList.remove('hidden');
+  lobby.classList.add('entered');
+
+  await restoreSeatFromDB();
+
+  subscribeRoom();
+  subscribeHostState();
+  subscribePlayers();
+  subscribeHands();
+  subscribeGame();
+
+  // ★ チップ：初期化＆購読
+  chipTray.classList.remove('hidden');
+  buildTraySlotsIfNeeded();
+  await ensureChipPoolExists();
+  subscribeChipsPool();
+  subscribeChipsOwned();
+
+  syncSeatUI();
+  renderCenterBoard();
+
+  setTimeout(setAllChipSizeToTag, 30);
+});
+
+copyLinkBtn.addEventListener('click', async () => {
+  const url = `${location.origin}${location.pathname}?room=${state.roomCode}`;
+  try {
+    await navigator.clipboard.writeText(url);
+    copyLinkBtn.classList.add('copied');
+    copyLinkBtn.textContent = 'COPIED';
+    inputCode.value = state.roomCode;
+    setTimeout(()=>{
+      copyLinkBtn.classList.remove('copied');
+      copyLinkBtn.textContent='リンクコピー';
+    },1500);
+  } catch {
+    prompt('コピーできません。手動でコピーしてください', url);
+  }
+});
+
+async function syncSeatUI(){
+  if (!state.roomCode) return;
+
+  const maxPlayers = state.room.maxPlayers || null;
+
+  if (!state.isHost && !maxPlayers){
+    seatPop.classList.add('hidden');
+    return;
+  }
+  if (state.seatedTable !== null){
+    seatPop.classList.add('hidden');
+    return;
+  }
+  await renderSeatTabs();
+  seatPop.classList.remove('hidden');
+}
+
+async function renderSeatTabs(){
+  if (!state.roomCode) return;
+  if (isRenderingSeatTabs) return;
+  isRenderingSeatTabs = true;
+
+  try {
+    seatTabs.innerHTML = '';
+
+    const roomRef = ref(db, `rooms/${state.roomCode}`);
+    const roomSnap = await get(roomRef);
+    const roomData = roomSnap.val() || {};
+    const maxPlayers = roomData.maxPlayers || null;
+
+    if(state.isHost && !maxPlayers){
+      seatLabel.textContent = '人数を選択';
+      for(let i=2; i<=8; i++){
+        const tab = document.createElement('div');
+        tab.className = 'tab';
+        tab.textContent = i;
+
+        tab.onclick = async () => {
+          await update(roomRef, { maxPlayers: i });
+          const tRef = ref(db, `rooms/${state.roomCode}/tables/1`);
+          await set(tRef, { playerId: state.userId, playerName: state.userName });
+
+          state.seatedTable = 1;
+          seatPop.classList.add('hidden');
+        };
+        seatTabs.appendChild(tab);
+      }
+      return;
+    }
+
+    seatLabel.textContent = '席を選択';
+
+    const effectiveMax = maxPlayers || 8;
+    const tablesSnap = await get(ref(db, `rooms/${state.roomCode}/tables`));
+    const tables = tablesSnap.val() || {};
+
+    for(let i=1; i<=effectiveMax; i++){
+      const tab = document.createElement('div');
+      tab.className = 'tab';
+      tab.textContent = i;
+
+      const t = tables[i];
+      if(t && t.playerId) tab.classList.add('disabled');
+
+      tab.onclick = async () => {
+        if(tab.classList.contains('disabled')) return;
+        const tRef = ref(db, `rooms/${state.roomCode}/tables/${i}`);
+        await set(tRef, { playerId: state.userId, playerName: state.userName });
+        state.seatedTable = i;
+        seatPop.classList.add('hidden');
+      };
+      seatTabs.appendChild(tab);
+    }
+  } finally {
+    isRenderingSeatTabs = false;
+  }
+}
+
+btnSeatCancel.onclick = () => {
+  seatPop.classList.add('hidden');
+  state.seatedTable = null;
+};
+
+function subscribePlayers(){
+  const tablesRef = ref(db, `rooms/${state.roomCode}/tables`);
+  onValue(tablesRef, async snap => {
+    const data = snap.val() || {};
+    const players = Object.entries(data)
+      .map(([seatIndex, t]) => (t && t.playerId ? {
+        id: t.playerId,
+        name: t.playerName || '名無し',
+        seatIndex: Number(seatIndex)
+      } : null))
+      .filter(Boolean)
+      .sort((a,b) => a.seatIndex - b.seatIndex);
+
+    latestPlayers = players;
+
+    const mySeat = players.find(p => p.id === state.userId);
+    if (mySeat && state.seatedTable === null) {
+      state.seatedTable = mySeat.seatIndex;
+      seatPop.classList.add('hidden');
+    }
+
+    const meStillSeated = players.some(p => p.id === state.userId);
+    if (!meStillSeated && state.seatedTable !== null) {
+      state.seatedTable = null;
+    }
+
+    await syncSeatUI();
+    renderPlayerCircle(players);
+
+    setAllChipSizeToTag();
+  });
+}
+
+/* =========================================================
+   ★ プレイヤー表示 + 所持チップ（全員分）
+   ========================================================= */
+function getOwnedList(pid){
+  const owned = state.chipsOwned?.[pid] || {};
+  const list = Object.entries(owned)
+    .map(([chipId, v]) => ({ chipId, ...(v||{}) }))
+    .filter(v => v && v.type)
+    .sort((a,b) => (a.gotAt||0) - (b.gotAt||0));
+  return list;
+}
+
+function renderPlayerCircle(players){
+  playerCircle.innerHTML = '';
+  if (!players.length) return;
+
+  const center = document.createElement('div');
+  center.className = 'center-table';
+  center.id = 'centerTable';
+  center.innerHTML = `
+    <div id="deckStack" class="deck-stack empty" title="山札">
+      <div id="deckCount" class="deck-count">52</div>
+    </div>
+    <div id="boardRow" class="board-row" aria-label="場札">
+      <div class="board-slot" data-slot="0"></div>
+      <div class="board-slot" data-slot="1"></div>
+      <div class="board-slot" data-slot="2"></div>
+      <div class="board-slot" data-slot="3"></div>
+      <div class="board-slot" data-slot="4"></div>
+    </div>
+  `;
+  playerCircle.appendChild(center);
+
+  const n = players.length;
+  const rx = 60;
+  const ry = 60;
+
+  const step = (2 * Math.PI) / n;
+  const anchorAngle = Math.PI / 2;
+  const meIndex = players.findIndex(p => p.id === state.userId);
+
+  players.forEach((p, idx) => {
+    const k = (meIndex === -1) ? idx : (idx - meIndex + n) % n;
+    const angle = anchorAngle + step * k;
+
+    const x = 50 + (rx/100)*100 * Math.cos(angle);
+    const y = 50 + (ry/100)*100 * Math.sin(angle);
+
+    const wrap = document.createElement('div');
+    wrap.className = 'player-wrap';
+    wrap.style.left = `${x}%`;
+    wrap.style.top  = `${y}%`;
+
+    const tag = document.createElement('div');
+    tag.className = 'player-tag' + (p.id === state.userId ? ' me' : '');
+    tag.dataset.pid = p.id;
+
+    const nameSpan = document.createElement('span');
+    nameSpan.textContent = p.name;
+    tag.appendChild(nameSpan);
+
+    if (p.id === state.userId){
+      const myc = document.createElement('div');
+      myc.className = 'mycircle';
+      tag.appendChild(myc);
+    } else {
+      tag.onclick = () => {
+        if (p.id === state.userId) return;
+        if (!state.roomCode) return;
+        if (state.seatedTable !== null) return;
+
+        pendingSeatIndexToSteal = p.seatIndex;
+        pendingSeatPlayerIdToSteal = p.id;
+        kickMessage.textContent = `「${p.name}」を追い出して、この席に着席しますか？`;
+        kickDialog.classList.remove('hidden');
+      };
+
+      const count = getShownCount(p.id);
+      if (count > 0){
+        const miniHand = document.createElement('div');
+        miniHand.className = 'mini-hand';
+
+        const spread = 70;
+        const base = (count > 1) ? (-spread/2) : 0;
+
+        for (let idx2=0; idx2<count; idx2++){
+          const card = document.createElement('div');
+          card.className = 'mini-card';
+          const angleDeg = (count > 1) ? base + (spread/(count-1))*idx2 : 0;
+          card.style.transform = `translate(-50%,0) rotate(${angleDeg}deg)`;
+          card.style.zIndex = String(10 + idx2);
+          miniHand.appendChild(card);
+        }
+        tag.appendChild(miniHand);
+      }
+    }
+
+    // ★ 所持チップ表示（全員分）
+    const row = document.createElement('div');
+    row.className = 'player-chip-row';
+    const ownedList = getOwnedList(p.id);
+    ownedList.forEach((c, i2) => {
+      const cw = document.createElement('div');
+      cw.style.width = 'var(--chipSize)';
+      cw.style.height= 'var(--chipSize)';
+      cw.innerHTML = chipSVG(c.type, `owned_${p.id}_${i2}`);
+      row.appendChild(cw);
+    });
+
+    wrap.appendChild(tag);
+    wrap.appendChild(row);
+    playerCircle.appendChild(wrap);
+  });
+
+  renderCenterBoard();
+  maybePlayDealFromGame();
+  setAllChipSizeToTag();
+}
+
+/* =========================
+   ★ 追い出しダイアログ
+   ========================= */
+kickDialog.addEventListener('click', (e) => {
+  if (e.target === kickDialog) {
+    kickDialog.classList.add('hidden');
+    pendingSeatIndexToSteal = null;
+    pendingSeatPlayerIdToSteal = null;
+  }
+});
+btnKickNo.addEventListener('click', (e) => {
+  e.stopPropagation();
+  kickDialog.classList.add('hidden');
+  pendingSeatIndexToSteal = null;
+  pendingSeatPlayerIdToSteal = null;
+});
+btnKickYes.addEventListener('click', async (e) => {
+  e.stopPropagation();
+  if (pendingSeatIndexToSteal == null || !state.roomCode) {
+    kickDialog.classList.add('hidden');
+    return;
+  }
+
+  const seatIndex = pendingSeatIndexToSteal;
+  const roomRef = ref(db, `rooms/${state.roomCode}`);
+  const roomSnap = await get(roomRef);
+  const roomData = roomSnap.val() || {};
+
+  const tRef = ref(db, `rooms/${state.roomCode}/tables/${seatIndex}`);
+  await set(tRef, { playerId: state.userId, playerName: state.userName || '名無し' });
+
+  if (roomData.hostId && pendingSeatPlayerIdToSteal && roomData.hostId === pendingSeatPlayerIdToSteal) {
+    await update(roomRef, { hostId: state.userId });
+  }
+
+  state.seatedTable = seatIndex;
+
+  kickDialog.classList.add('hidden');
+  pendingSeatIndexToSteal = null;
+  pendingSeatPlayerIdToSteal = null;
+
+  seatPop.classList.add('hidden');
+});
+
+/* =========================
+   ★ ゲーム開始系
+   ========================= */
+async function ensureGameExistsIfHost(){
+  if (!state.isHost || !state.roomCode) return;
+  const gameRef = ref(db, `rooms/${state.roomCode}/game`);
+  const snap = await get(gameRef);
+  const cur = snap.val();
+  const ok =
+    cur &&
+    typeof cur.started === 'boolean' &&
+    Array.isArray(cur.deck) &&
+    (Array.isArray(cur.boardCodes) || Array.isArray(cur.board)) &&
+    (typeof cur.boardFaceUpCount === 'number' || typeof cur.boardFaceUpCount === 'undefined');
+  if (!ok){
+    await set(gameRef, { started:false, deck: [], boardCodes: [], boardFaceUpCount: 0, deal:null });
+  }
+}
+async function startGameDeal(){
+  if (!state.roomCode) return;
+
+  const tablesSnap = await get(ref(db, `rooms/${state.roomCode}/tables`));
+  const tables = tablesSnap.val() || {};
+  const seated = Object.entries(tables)
+    .map(([seatIndex, t]) => (t && t.playerId ? {
+      seatIndex: Number(seatIndex),
+      id: t.playerId,
+      name: t.playerName || '名無し'
+    } : null))
+    .filter(Boolean)
+    .sort((a,b) => a.seatIndex - b.seatIndex);
+
+  const deck = shuffleInPlace(buildDeck52());
+  const boardCodes = [];
+  const boardFaceUpCount = 0;
+
+  const hands = {};
+  seated.forEach(p => hands[p.id] = { cards: [] });
+
+  for (let round=0; round<2; round++){
+    for (const p of seated){
+      const c = deck.shift();
+      if (c) hands[p.id].cards.push(c);
+    }
+  }
+
+  const deal = { id: Date.now(), at: Date.now(), order: seated.map(p => p.id) };
+
+  const base = `rooms/${state.roomCode}`;
+  await Promise.all([
+    set(ref(db, `${base}/game`), { started:true, deck, boardCodes, boardFaceUpCount, deal }),
+    set(ref(db, `${base}/hands`), hands),
+  ]);
+}
+hostSettingsBtn.addEventListener('click', async () => {
+  if (!state.isHost) return;
+  await ensureGameExistsIfHost();
+  startPop.classList.toggle('hidden');
+});
+btnStartPopClose.addEventListener('click', () => { startPop.classList.add('hidden'); });
+btnGameStart.addEventListener('click', async () => {
+  if (!state.isHost) return;
+  await startGameDeal();
+  startPop.classList.add('hidden');
+});
+btnResetRoom.addEventListener('click', async () => {
+  if (!state.isHost || !state.roomCode) return;
+  const base = `rooms/${state.roomCode}`;
+  await Promise.all([
+    remove(ref(db, `${base}/maxPlayers`)),
+    remove(ref(db, `${base}/tables`)),
+    remove(ref(db, `${base}/hands`)),
+    remove(ref(db, `${base}/game`)),
+    remove(ref(db, `${base}/chipsPool`)),
+    remove(ref(db, `${base}/chipsOwned`)),
+  ]);
+  state.seatedTable = null;
+  startPop.classList.add('hidden');
+  await syncSeatUI();
+
+  state.game = { started:false, deck:[], boardCodes:[], boardFaceUpCount:0, deal:null };
+  renderCenterBoard();
+
+  // チップも再初期化
+  await ensureChipPoolExists();
+});
+
+window.addEventListener('load', () => { renderCenterBoard(); });
+</script>
+
+</body>
+</html>
