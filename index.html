@@ -119,6 +119,9 @@
     z-index:212;
     pointer-events:auto;
   }
+  .player-wrap.top-seat .player-tag{
+    transform:translateY(70px);
+  }
 
   .player-tag.me{ background:#111;color:#fff;border-color:#111; }
 
@@ -588,7 +591,8 @@
     padding:12px 12px 10px;
     overflow:hidden;
     transform-origin:center;
-    animation: handPop 5.0s cubic-bezier(.22,.84,.44,1) both;
+    will-change: transform, opacity;
+    animation: handPop 3.8s cubic-bezier(.22,.84,.44,1) both;
   }
   .hand-result-card::before{
     content:'';
@@ -665,12 +669,13 @@
   .hand-result-cards .pcard .face-suit{ font-size:26px !important; }
 
   @keyframes handPop{
-    0%   { opacity:0; transform:translateY(10px) scale(.85); filter:blur(2px); }
-    10%  { opacity:1; transform:translateY(0px)  scale(1.03); filter:blur(0px); }
-    16%  { opacity:1; transform:translateY(0px)  scale(1.00); }
-    90%  { opacity:1; transform:translateY(0px)  scale(1.00); }
-    100% { opacity:0; transform:translateY(-6px) scale(.96); }
+    0%   { opacity:0; transform:translateY(8px) scale(.9); }
+    12%  { opacity:1; transform:translateY(0px) scale(1.02); }
+    20%  { opacity:1; transform:translateY(0px) scale(1.00); }
+    85%  { opacity:1; transform:translateY(0px) scale(1.00); }
+    100% { opacity:0; transform:translateY(-4px) scale(.98); }
   }
+
 </style>
 </head>
 <body>
@@ -3202,6 +3207,9 @@ function renderPlayerCircle(players){
 
     const wrap = document.createElement('div');
     wrap.className = 'player-wrap';
+    if (Math.sin(angle) < -0.6) {
+      wrap.classList.add('top-seat');
+    }
     wrap.style.left = `${x}%`;
     wrap.style.top = `${y}%`;
     wrap.dataset.pid = p.id;
