@@ -575,9 +575,9 @@
   }
   .hand-result-pop.hidden{ display:none; }
 
-  .hand-result-card{
+ .hand-result-card{
     position:relative;
-    width:min(640px, calc(100vw - 28px));
+    width:min(420px, calc(100vw - 28px));
     border-radius:18px;
     border:1px solid rgba(255,255,255,.22);
     background:
@@ -585,7 +585,7 @@
       radial-gradient(circle at 80% 30%, rgba(255,255,255,.16), rgba(255,255,255,0) 60%),
       linear-gradient(180deg, rgba(15,15,20,.92), rgba(10,10,14,.90));
     box-shadow:0 22px 60px rgba(0,0,0,.55);
-    padding:14px 14px 12px;
+    padding:12px 12px 10px;
     overflow:hidden;
     transform-origin:center;
     animation: handPop 5.0s cubic-bezier(.22,.84,.44,1) both;
@@ -616,6 +616,7 @@
     justify-content:space-between;
     gap:10px;
     z-index:1;
+    flex-wrap:wrap;
   }
   .hand-result-title{
     font-family:'Fredoka','Baloo 2',system-ui,sans-serif;
@@ -2415,7 +2416,6 @@ function eval5(cards5){
 function bestHandFromCodes(codes){
   const cards = (codes||[]).map(cardToEval).filter(Boolean);
   if (cards.length < 5) return null;
-
   let best = null;
   let bestCombo = null;
 
@@ -2433,8 +2433,89 @@ function bestHandFromCodes(codes){
 
   if (!best || !bestCombo) return null;
   const bestFiveCodes = bestCombo.map(c=>c.code);
-  return { name: best.name, score: best.score, bestFiveCodes };
+  const ordered = orderBestFiveForDisplay(bestCombo, best);
+  return { name: best.name, score: best.score, bestFiveCodes, displayCodes: ordered };
 }
+function orderBestFiveForDisplay(cards5, bestEval){
+  if (!cards5 || cards5.length !== 5 || !bestEval) return (cards5 || []).map(c=>c.code);
+
+  const byValue = new Map();
+  cards5.forEach(card => {
+    if (!byValue.has(card.v)) byValue.set(card.v, []);
+    byValue.get(card.v).push(card);
+  });
+
+  const counts = {};
+  cards5.forEach(c => counts[c.v] = (counts[c.v] || 0) + 1);
+  const groups = Object.entries(counts)
+    .map(([v,c]) => ({ v:Number(v), c:Number(c) }))
+    .sort((a,b)=> (b.c - a.c) || (b.v - a.v));
+
+  const pullAll = (v) => {
+    const arr = byValue.get(v) || [];
+    byValue.set(v, []);
+    return arr;
+  };
+  const pullOne = (v) => {
+    const arr = byValue.get(v) || [];
+    const card = arr.shift();
+    if (arr.length === 0) byValue.delete(v);
+    else byValue.set(v, arr);
+    return card;
+  };
+
+  const orderedCards = [];
+  const cat = bestEval.cat ?? bestEval.score?.[0] ?? 0;
+
+  if (cat === 8 || cat === 4){
+    const sh = bestEval.score?.[1] ?? 0;
+    const seq = (sh === 5)
+      ? [5,4,3,2,14]
+      : [sh, sh-1, sh-2, sh-3, sh-4];
+    seq.forEach(v => {
+      const card = pullOne(v);
+      if (card) orderedCards.push(card);
+    });
+  } else if (cat === 7){
+    const quad = groups[0]?.v;
+    const kicker = groups.find(g=>g.c===1)?.v;
+    if (quad) orderedCards.push(...pullAll(quad));
+    if (kicker) orderedCards.push(...pullAll(kicker));
+  } else if (cat === 6){
+    const tri = groups[0]?.v;
+    const pair = groups[1]?.v;
+    if (tri) orderedCards.push(...pullAll(tri));
+    if (pair) orderedCards.push(...pullAll(pair));
+  } else if (cat === 3){
+    const tri = groups[0]?.v;
+    if (tri) orderedCards.push(...pullAll(tri));
+    const kickers = groups.filter(g=>g.c===1).map(g=>g.v).sort((a,b)=>b-a);
+    kickers.forEach(v => orderedCards.push(...pullAll(v)));
+  } else if (cat === 2){
+    const pairHigh = Math.max(groups[0]?.v ?? 0, groups[1]?.v ?? 0);
+    const pairLow = Math.min(groups[0]?.v ?? 0, groups[1]?.v ?? 0);
+    if (pairHigh) orderedCards.push(...pullAll(pairHigh));
+    if (pairLow) orderedCards.push(...pullAll(pairLow));
+    const kicker = groups.find(g=>g.c===1)?.v;
+    if (kicker) orderedCards.push(...pullAll(kicker));
+  } else if (cat === 1){
+    const pair = groups[0]?.v;
+    if (pair) orderedCards.push(...pullAll(pair));
+    const kickers = groups.filter(g=>g.c===1).map(g=>g.v).sort((a,b)=>b-a);
+    kickers.forEach(v => orderedCards.push(...pullAll(v)));
+  } else {
+    orderedCards.push(...cards5.slice().sort((a,b)=>b.v - a.v));
+  }
+
+  const orderedCodes = orderedCards.map(c=>c.code);
+  if (orderedCodes.length !== 5){
+    return cards5.slice().sort((a,b)=>b.v - a.v).map(c=>c.code);
+  }
+  return orderedCodes;
+}
+
+
+
 function getPlayerName(pid){
   const p = latestPlayers.find(x => x.id === pid);
   return p ? (p.name || 'PLAYER') : 'PLAYER';
@@ -2465,7 +2546,6 @@ function showHandResultPop(playerName, handName, bestFiveCodes){
 function maybeShowRevealHandPop(){
   const r = state.reveal;
   const revealed = r?.revealed || {};
-
   // 初回購読は「既に公開済み」があっても出さない
   if (!state._revealPopInited){
     state._revealPopInited = true;
@@ -2494,7 +2574,8 @@ function maybeShowRevealHandPop(){
   const best = bestHandFromCodes(pool);
   if (!best) return;
 
-  showHandResultPop(getPlayerName(pid), best.name, best.bestFiveCodes);
+  const displayCodes = best.displayCodes || best.bestFiveCodes;
+  showHandResultPop(getPlayerName(pid), best.name, displayCodes);
 }
 
 /* =========================
