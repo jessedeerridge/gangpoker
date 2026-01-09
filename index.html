@@ -676,6 +676,115 @@
     100% { opacity:0; transform:translateY(-4px) scale(.98); }
   }
 
+/* =========================
+   ★追加：左下の2つの山札（独立機能）
+   ========================= */
+.ex-two-decks{
+  position:fixed;
+  left:16px;
+  bottom:76px; /* 左下ボタン(？)と干渉しないように少し上 */
+  z-index:260;
+  display:flex;
+  gap:10px;
+  pointer-events:auto;
+}
+.ex-two-decks.hidden{ display:none; }
+
+.ex-deck-stack{
+  width:54px;
+  height:78px;
+  position:relative;
+  border-radius:10px;
+  cursor:pointer;
+  user-select:none;
+  pointer-events:auto;
+}
+.ex-deck-stack.empty{
+  outline:1px dashed rgba(0,0,0,.35);
+  outline-offset:-4px;
+  background:rgba(0,0,0,.06);
+  box-shadow:none;
+}
+
+.ex-deck-layer{
+  position:absolute;
+  inset:0;
+  border-radius:10px;
+  border:1px solid rgba(255,255,255,.65);
+  overflow:hidden;
+  background:
+    radial-gradient(circle at 50% 50%, rgba(255,255,255,.18), rgba(255,255,255,0) 55%),
+    repeating-linear-gradient(45deg, rgba(255,255,255,.10) 0 2px, rgba(255,255,255,0) 2px 6px),
+    linear-gradient(135deg, rgba(185,28,28,.95), rgba(127,29,29,.95));
+}
+.ex-deck-layer::after{
+  content:'';
+  position:absolute;
+  inset:6px;
+  border-radius:8px;
+  border:1px solid rgba(255,255,255,.45);
+  box-shadow:inset 0 0 0 1px rgba(0,0,0,.15);
+}
+
+.ex-deck-count{
+  position:absolute;
+  right:-6px;
+  top:-8px;
+  min-width:22px;
+  height:18px;
+  padding:0 6px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  border-radius:999px;
+  background:rgba(0,0,0,.55);
+  color:#fff;
+  font-size:11px;
+  font-weight:900;
+  border:1px solid rgba(255,255,255,.25);
+  pointer-events:none;
+}
+
+/* 追加で出現するカード（手札と同サイズ：60x90） */
+.ex-float-card{
+  position:fixed;
+  width:60px;
+  height:90px;
+  border-radius:8px;
+  border:2px solid #111;
+  background:#fff;
+  box-shadow:0 10px 22px rgba(0,0,0,.20);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-weight:900;
+  font-size:22px;
+  letter-spacing:.02em;
+  user-select:none;
+  touch-action:none; /* ドラッグ用 */
+  cursor:grab;
+}
+.ex-float-card:active{ cursor:grabbing; }
+
+.ex-float-card .ex-mini{
+  position:absolute;
+  inset:0;
+  border-radius:6px;
+  margin:6px;
+  border:1px solid rgba(0,0,0,.15);
+  pointer-events:none;
+}
+.ex-float-card .ex-label{
+  position:relative;
+  z-index:1;
+}
+.ex-float-card.ex-challenge{ color:#b91c1c; }
+.ex-float-card.ex-specialist{ color:#111; }
+
+/* 追加機能専用ダイアログ（既存ダイアログには干渉しない） */
+#exDialogBackdrop{ z-index:99999; }
+
+
 </style>
 </head>
 <body>
@@ -793,6 +902,32 @@
     <div class="hand-result-cards" id="handResultCards"></div>
   </div>
 </div>
+
+<!-- =========================
+     ★追加：左下の2つの山札（独立機能）
+     ========================= -->
+<div id="exTwoDecks" class="ex-two-decks hidden" aria-label="追加山札">
+  <div id="exSpecStack" class="ex-deck-stack" title="スペシャリスト山札">
+    <div id="exSpecCount" class="ex-deck-count">10</div>
+  </div>
+
+  <div id="exChalStack" class="ex-deck-stack" title="チャレンジ山札">
+    <div id="exChalCount" class="ex-deck-count">10</div>
+  </div>
+</div>
+
+<!-- ★追加機能専用：確認ポップ（既存とは完全分離） -->
+<div id="exDialogBackdrop" class="dialog-backdrop hidden">
+  <div class="dialog-box">
+    <p id="exDialogText">確認</p>
+    <div class="dialog-buttons">
+      <button class="btn ghost" id="exDialogNo">いいえ</button>
+      <button class="btn primary" id="exDialogYes">はい</button>
+    </div>
+  </div>
+</div>
+
+
 
 <div id="dragLayer"></div>
 
@@ -3527,6 +3662,529 @@ btnResetRoom.addEventListener('click', async () => {
 window.addEventListener('load', () => {
   renderCenterBoard();
 });
+
+/* =========================================================
+   ★追加：左下の2つの山札（スペシャリスト/チャレンジ）【完全独立】
+   DB: rooms/{room}/twoDecks
+   ========================================================= */
+
+const exElTwoDecks = document.getElementById('exTwoDecks');
+const exSpecStack  = document.getElementById('exSpecStack');
+const exChalStack  = document.getElementById('exChalStack');
+const exSpecCount  = document.getElementById('exSpecCount');
+const exChalCount  = document.getElementById('exChalCount');
+
+const exDialogBackdrop = document.getElementById('exDialogBackdrop');
+const exDialogText     = document.getElementById('exDialogText');
+const exDialogYes      = document.getElementById('exDialogYes');
+const exDialogNo       = document.getElementById('exDialogNo');
+
+const EX_LONGPRESS_MS = 520;
+const EX_MOVE_SLOP_PX = 8;
+
+const EX_STACK_OFFSETS_10 = [
+  {x:0.0,y:0.0,r: 0.0},{x:0.5,y:0.6,r:-0.4},{x:1.0,y:1.1,r: 0.3},{x:1.5,y:1.6,r:-0.3},
+  {x:2.0,y:2.1,r: 0.5},{x:2.5,y:2.7,r:-0.2},{x:3.0,y:3.2,r: 0.4},{x:3.5,y:3.8,r:-0.5},
+  {x:4.0,y:4.3,r: 0.3},{x:4.5,y:4.9,r:-0.2},
+];
+
+function exRndId(){
+  return 'ex_' + Math.random().toString(16).slice(2) + '_' + Date.now().toString(16);
+}
+
+function exClamp(v, min, max){ return Math.max(min, Math.min(max, v)); }
+function exNow(){ return Date.now(); }
+
+function exRoomPath(sub){
+  return `rooms/${state.roomCode}/twoDecks${sub ? '/' + sub : ''}`;
+}
+
+async function exConfirm(message){
+  return new Promise((resolve) => {
+    exDialogText.textContent = message;
+    exDialogBackdrop.classList.remove('hidden');
+
+    const done = (v) => {
+      exDialogBackdrop.classList.add('hidden');
+      exDialogYes.removeEventListener('click', onYes);
+      exDialogNo.removeEventListener('click', onNo);
+      exDialogBackdrop.removeEventListener('click', onBg);
+      resolve(v);
+    };
+    const onYes = (e) => { e.preventDefault(); e.stopPropagation(); done(true); };
+    const onNo  = (e) => { e.preventDefault(); e.stopPropagation(); done(false); };
+    const onBg  = (e) => { if (e.target === exDialogBackdrop) done(false); };
+
+    exDialogYes.addEventListener('click', onYes);
+    exDialogNo.addEventListener('click', onNo);
+    exDialogBackdrop.addEventListener('click', onBg);
+  });
+}
+
+function exShuffleInPlace(arr){
+  for (let i = arr.length - 1; i > 0; i--){
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+function exNormalizePosPxTo01(leftPx, topPx){
+  const w = Math.max(1, window.innerWidth);
+  const h = Math.max(1, window.innerHeight);
+  return {
+    x: exClamp(leftPx / w, 0, 1),
+    y: exClamp(topPx  / h, 0, 1),
+  };
+}
+function exDenormalize01ToPx(x01, y01){
+  const w = Math.max(1, window.innerWidth);
+  const h = Math.max(1, window.innerHeight);
+  return {
+    left: Math.round(exClamp(Number(x01), 0, 1) * w),
+    top : Math.round(exClamp(Number(y01), 0, 1) * h),
+  };
+}
+
+/* ---------- DB ensure/subscribe ---------- */
+let exInited = false;
+let exSubUnsub = null;
+
+const exLocal = {
+  data: null,
+  cardEls: new Map(), // id -> el
+  dragging: null,     // {id, offX, offY, moved, raf, lastCommit}
+  pressTimers: new Map()
+};
+
+async function exEnsureTwoDecksRoot(){
+  if (!state.roomCode) return;
+  const baseRef = ref(db, exRoomPath(''));
+  const snap = await get(baseRef);
+  if (!snap.exists()){
+    await set(baseRef, {
+      specialist: { stack: [1,2,3,4,5,6,7,8,9,10] },
+      challenge:   { stack: [1,2,3,4,5,6,7,8,9,10] },
+      cards: {}
+    });
+    return;
+  }
+  const v = snap.val() || {};
+  const patch = {};
+  if (!v.specialist?.stack) patch['specialist/stack'] = [1,2,3,4,5,6,7,8,9,10];
+  if (!v.challenge?.stack)   patch['challenge/stack'] = [1,2,3,4,5,6,7,8,9,10];
+  if (v.cards === undefined) patch['cards'] = {};
+  if (Object.keys(patch).length){
+    try{ await update(baseRef, patch); }catch(e){}
+  }
+}
+
+function exSubscribe(){
+  if (!state.roomCode) return;
+  const baseRef = ref(db, exRoomPath(''));
+  onValue(baseRef, (snap) => {
+    exLocal.data = snap.val() || null;
+    exRenderAll();
+  });
+}
+
+function exShowUIIfJoined(){
+  // 既存UIの流儀に合わせて「入室後(joinBox hidden)」に表示
+  if (!joinBox || joinBox.classList.contains('hidden')){
+    exElTwoDecks.classList.remove('hidden');
+  }
+}
+
+/* ---------- Deck visual ---------- */
+function exRenderDeckStack(stackEl, countEl, len){
+  stackEl.querySelectorAll('.ex-deck-layer').forEach(n => n.remove());
+
+  const empty = (len <= 0);
+  stackEl.classList.toggle('empty', empty);
+  if (countEl) countEl.textContent = String(Math.max(0, len));
+
+  if (empty) return;
+
+  // 山札感：最大10枚のレイヤー
+  const layers = Math.min(10, Math.max(1, len));
+  for (let i = layers - 1; i >= 0; i--){
+    const layer = document.createElement('div');
+    layer.className = 'ex-deck-layer';
+    const o = EX_STACK_OFFSETS_10[i] || {x:0,y:0,r:0};
+    layer.style.transform = `translate(${o.x}px, ${o.y}px) rotate(${o.r}deg)`;
+    stackEl.insertBefore(layer, countEl);
+  }
+}
+
+function exGetStack(deckKey){
+  const d = exLocal.data || {};
+  const st = d?.[deckKey]?.stack;
+  if (Array.isArray(st)) return st.slice();
+  // object形式で入っても耐える
+  if (st && typeof st === 'object') return Object.values(st).map(Number).filter(n=>Number.isFinite(n));
+  return [];
+}
+
+/* ---------- Draw/Shuffle ---------- */
+async function exDrawTop(deckKey){
+  if (!state.roomCode) return;
+
+  const baseRef = ref(db, exRoomPath(''));
+  const snap = await get(baseRef);
+  const v = snap.val() || {};
+  const cur = Array.isArray(v?.[deckKey]?.stack) ? v[deckKey].stack.slice() : [];
+
+  if (!cur.length) return;
+
+  // 「上が1」→ 配列先頭がトップ
+  const topNum = cur.shift();
+
+  // 出現位置：左下付近にランダムで少し散らす
+  const spawnLeft = 110 + Math.round(Math.random() * 40);
+  const spawnTop  = Math.max(40, window.innerHeight - 210 - Math.round(Math.random() * 30));
+  const pos01 = exNormalizePosPxTo01(spawnLeft, spawnTop);
+
+  const cardId = exRndId();
+  const card = {
+    deckKey,
+    num: topNum,
+    label: (deckKey === 'challenge') ? `C${topNum}` : String(topNum),
+    x: pos01.x,
+    y: pos01.y,
+    rot: 0,
+    z: exNow(),
+    createdAt: exNow(),
+    createdBy: state.userId,
+    updatedAt: exNow(),
+    updatedBy: state.userId,
+    lockBy: null,
+    lockAt: 0
+  };
+
+  // 先に山札を減らし、カードを生成
+  try{
+    await update(baseRef, {
+      [`${deckKey}/stack`]: cur,
+      [`cards/${cardId}`]: card
+    });
+  }catch(e){}
+}
+
+async function exShuffleDeck(deckKey){
+  if (!state.roomCode) return;
+
+  const ok = await exConfirm('シャッフルしますか？');
+  if (!ok) return;
+
+  const baseRef = ref(db, exRoomPath(''));
+  const snap = await get(baseRef);
+  const v = snap.val() || {};
+  const cur = Array.isArray(v?.[deckKey]?.stack) ? v[deckKey].stack.slice() : [];
+  if (cur.length <= 1) return;
+
+  exShuffleInPlace(cur);
+  try{
+    await update(baseRef, { [`${deckKey}/stack`]: cur });
+  }catch(e){}
+}
+
+async function exReturnCardToBottom(cardId){
+  if (!state.roomCode) return;
+
+  const ok = await exConfirm('山札の一番下に戻しますか？');
+  if (!ok) return;
+
+  const baseRef = ref(db, exRoomPath(''));
+  const snap = await get(baseRef);
+  const v = snap.val() || {};
+  const card = v?.cards?.[cardId];
+  if (!card) return;
+
+  const deckKey = card.deckKey;
+  const num = Number(card.num);
+  if (!Number.isFinite(num)) return;
+
+  const stack = Array.isArray(v?.[deckKey]?.stack) ? v[deckKey].stack.slice() : [];
+  stack.push(num); // 一番下へ
+
+  const patch = {};
+  patch[`${deckKey}/stack`] = stack;
+  patch[`cards/${cardId}`] = null; // remove
+
+  try{
+    // updateでnull指定は消える（RTDB）
+    await update(baseRef, patch);
+  }catch(e){
+    try{ await remove(ref(db, exRoomPath(`cards/${cardId}`))); }catch(e2){}
+    try{ await update(ref(db, exRoomPath(`${deckKey}`)), { stack }); }catch(e3){}
+  }
+}
+
+/* ---------- Long press helper ---------- */
+function exBindDeckInteractions(stackEl, deckKey){
+  if (stackEl.dataset.exBound) return;
+  stackEl.dataset.exBound = '1';
+
+  let press = null;
+  let firedLong = false;
+
+  const clear = () => {
+    if (press?.t) clearTimeout(press.t);
+    press = null;
+    firedLong = false;
+  };
+
+  stackEl.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    firedLong = false;
+    press = { x:e.clientX, y:e.clientY, t: 0 };
+    press.t = setTimeout(async () => {
+      firedLong = true;
+      await exShuffleDeck(deckKey);
+    }, EX_LONGPRESS_MS);
+  }, { passive:false });
+
+  stackEl.addEventListener('pointermove', (e) => {
+    if (!press) return;
+    const dx = e.clientX - press.x;
+    const dy = e.clientY - press.y;
+    if (Math.hypot(dx,dy) > EX_MOVE_SLOP_PX){
+      clear();
+    }
+  }, { passive:false });
+
+  stackEl.addEventListener('pointerup', async (e) => {
+    if (!press) return;
+    e.preventDefault();
+    e.stopPropagation();
+
+    const dx = e.clientX - press.x;
+    const dy = e.clientY - press.y;
+    const moved = Math.hypot(dx,dy) > EX_MOVE_SLOP_PX;
+
+    const wasLong = firedLong;
+    clear();
+
+    if (wasLong) return;
+    if (moved) return;
+
+    await exDrawTop(deckKey);
+  }, { passive:false });
+
+  stackEl.addEventListener('pointercancel', clear, { passive:false });
+}
+
+/* ---------- Card render/drag ---------- */
+function exMakeCardEl(cardId, card){
+  const el = document.createElement('div');
+  el.className = 'ex-float-card ' + (card.deckKey === 'challenge' ? 'ex-challenge' : 'ex-specialist');
+  el.dataset.cardId = cardId;
+
+  const mini = document.createElement('div');
+  mini.className = 'ex-mini';
+
+  const label = document.createElement('div');
+  label.className = 'ex-label';
+  label.textContent = card.label ?? '';
+
+  el.appendChild(mini);
+  el.appendChild(label);
+
+  // long press to return
+  let press = null;
+  let firedLong = false;
+
+  const clear = () => {
+    if (press?.t) clearTimeout(press.t);
+    press = null;
+    firedLong = false;
+  };
+
+  el.addEventListener('pointerdown', async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    // lock（ゆるい）
+    try{
+      await update(ref(db, exRoomPath(`cards/${cardId}`)), {
+        lockBy: state.userId,
+        lockAt: exNow(),
+        z: exNow(),
+        updatedAt: exNow(),
+        updatedBy: state.userId
+      });
+    }catch(e2){}
+
+    firedLong = false;
+    press = { x:e.clientX, y:e.clientY, t:0 };
+    press.t = setTimeout(async () => {
+      firedLong = true;
+      // 返却ポップ（ドラッグと競合しない）
+      await exReturnCardToBottom(cardId);
+    }, EX_LONGPRESS_MS);
+
+    // drag start
+    const r = el.getBoundingClientRect();
+    exLocal.dragging = {
+      id: cardId,
+      offX: e.clientX - r.left,
+      offY: e.clientY - r.top,
+      moved: false,
+      raf: 0,
+      lastCommit: 0
+    };
+
+    const onMove = (ev) => exOnCardMove(ev);
+    const onUp   = (ev) => exOnCardUp(ev, onMove, onUp);
+
+    window.addEventListener('pointermove', onMove, { passive:false });
+    window.addEventListener('pointerup', onUp, { passive:false });
+    window.addEventListener('pointercancel', onUp, { passive:false });
+  }, { passive:false });
+
+  function exOnCardMove(e){
+    if (!exLocal.dragging || exLocal.dragging.id !== cardId) return;
+    e.preventDefault();
+
+    const dx = e.clientX - (press?.x ?? e.clientX);
+    const dy = e.clientY - (press?.y ?? e.clientY);
+    if (press && Math.hypot(dx,dy) > EX_MOVE_SLOP_PX){
+      exLocal.dragging.moved = true;
+      clear(); // 動いたら長押し解除
+    }
+
+    const left = e.clientX - exLocal.dragging.offX;
+    const top  = e.clientY - exLocal.dragging.offY;
+
+    el.style.left = `${Math.round(left)}px`;
+    el.style.top  = `${Math.round(top)}px`;
+
+    // DB commit throttle
+    const now = exNow();
+    if (now - exLocal.dragging.lastCommit < 50) return;
+    exLocal.dragging.lastCommit = now;
+
+    const pos01 = exNormalizePosPxTo01(left, top);
+    update(ref(db, exRoomPath(`cards/${cardId}`)), {
+      x: pos01.x,
+      y: pos01.y,
+      z: exNow(),
+      updatedAt: exNow(),
+      updatedBy: state.userId
+    }).catch(()=>{});
+  }
+
+  function exOnCardUp(e, onMove, onUp){
+    if (!exLocal.dragging || exLocal.dragging.id !== cardId) return;
+    e.preventDefault();
+
+    window.removeEventListener('pointermove', onMove);
+    window.removeEventListener('pointerup', onUp);
+    window.removeEventListener('pointercancel', onUp);
+
+    const wasLong = firedLong;
+    clear();
+
+    // lock解除（返却で消えててもOK）
+    update(ref(db, exRoomPath(`cards/${cardId}`)), {
+      lockBy: null,
+      lockAt: 0,
+      updatedAt: exNow(),
+      updatedBy: state.userId
+    }).catch(()=>{});
+
+    exLocal.dragging = null;
+
+    if (wasLong) return;
+  }
+
+  document.body.appendChild(el);
+  return el;
+}
+
+function exUpdateCardEl(el, card){
+  const { left, top } = exDenormalize01ToPx(card.x ?? 0.2, card.y ?? 0.7);
+  el.style.left = `${left}px`;
+  el.style.top  = `${top}px`;
+  el.style.transform = `rotate(${Number(card.rot || 0)}deg)`;
+  el.style.zIndex = String(Number(card.z || 0) || 1);
+
+  const label = el.querySelector('.ex-label');
+  const text = card.label ?? ((card.deckKey === 'challenge') ? `C${card.num}` : String(card.num));
+  if (label && label.textContent !== text) label.textContent = text;
+
+  el.classList.toggle('ex-challenge', card.deckKey === 'challenge');
+  el.classList.toggle('ex-specialist', card.deckKey !== 'challenge');
+}
+
+function exRenderCards(cardsObj){
+  const cards = cardsObj && typeof cardsObj === 'object' ? cardsObj : {};
+
+  // remove missing
+  for (const [id, el] of exLocal.cardEls.entries()){
+    if (!cards[id]){
+      if (el && el.parentNode) el.remove();
+      exLocal.cardEls.delete(id);
+    }
+  }
+
+  // add/update
+  for (const [id, card] of Object.entries(cards)){
+    if (!card) continue;
+    let el = exLocal.cardEls.get(id);
+    if (!el){
+      el = exMakeCardEl(id, card);
+      exLocal.cardEls.set(id, el);
+    }
+    // dragging中はローカル表示優先（ワープ防止）
+    if (exLocal.dragging && exLocal.dragging.id === id) continue;
+    exUpdateCardEl(el, card);
+  }
+}
+
+/* ---------- Master render ---------- */
+function exRenderAll(){
+  exShowUIIfJoined();
+  if (!exLocal.data) return;
+
+  const specStack = exGetStack('specialist');
+  const chalStack = exGetStack('challenge');
+
+  exRenderDeckStack(exSpecStack, exSpecCount, specStack.length);
+  exRenderDeckStack(exChalStack, exChalCount, chalStack.length);
+
+  exBindDeckInteractions(exSpecStack, 'specialist');
+  exBindDeckInteractions(exChalStack, 'challenge');
+
+  exRenderCards(exLocal.data.cards);
+}
+
+/* ---------- Boot ---------- */
+(function exBoot(){
+  const timer = setInterval(async () => {
+    if (exInited) return;
+    if (!state.roomCode) return; // 入室後に開始
+    exInited = true;
+    clearInterval(timer);
+
+    try{ await exEnsureTwoDecksRoot(); }catch(e){}
+    exSubscribe();
+
+    // resizeで位置再計算（正規化→px変換）
+    window.addEventListener('resize', () => {
+      if (!exLocal.data?.cards) return;
+      for (const [id, card] of Object.entries(exLocal.data.cards)){
+        const el = exLocal.cardEls.get(id);
+        if (!el || !card) continue;
+        if (exLocal.dragging && exLocal.dragging.id === id) continue;
+        exUpdateCardEl(el, card);
+      }
+    });
+  }, 250);
+})();
+
+
 </script>
 
 </body>
