@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>テンプレ</title>
 
-<!-- ★追加：ポップなフォント（演出用） -->
+<!-- ：ポップなフォント（演出用） -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@700;800&family=Fredoka:wght@600;700&display=swap" rel="stylesheet">
@@ -102,6 +102,25 @@
   }
   .player-circle::before{content:'';}
 
+  /* =========================
+     ：スペシャル5中「円の中＝捨てる場所」を表示
+     ========================= */
+  .player-circle.discard-active::after{
+    content:'捨てる';
+    position:absolute;
+    inset:14px;
+    border-radius:50%;
+    border:2px dashed rgba(0,0,0,.55);
+    background:rgba(255,255,255,.10);
+    display:grid;
+    place-items:center;
+    font-weight:900;
+    font-size:18px;
+    color:rgba(0,0,0,.55);
+    pointer-events:none;
+  }
+
+
   .player-wrap{
     position:absolute;
     transform:translate(-50%,-50%);
@@ -122,10 +141,14 @@
   .player-wrap.top-seat .player-tag{
     transform:translateY(70px);
   }
+.player-wrap.top-seat .owned-chips{
+  transform:translateY(70px);
+}
+
 
   .player-tag.me{ background:#111;color:#fff;border-color:#111; }
 
-  /* ★追加：公開ターンの強調（現在の番） */
+  /* ：公開ターンの強調（現在の番） */
   .player-tag.turn{
     outline:2px solid #16a34a;
     outline-offset:2px;
@@ -162,7 +185,7 @@
     position:absolute;left:50%;top:100%;
     transform:translate(-50%,3px);
     width:60px;height:30px;pointer-events:none;
-    z-index:500; /* ★追加：プールより上 */
+    z-index:500; /* ：プールより上 */
   }
   .player-tag .mini-card{
     position:absolute;left:50%;top:0;width:16px;height:22px;
@@ -173,7 +196,7 @@
     box-shadow:0 2px 6px rgba(0,0,0,.15);
   }
 
-  /* ★追加：公開手札（まっすぐ横一列） */
+  /* ：公開手札（まっすぐ横一列） */
   .player-tag .reveal-hand{
     position:absolute;
     left:50%;
@@ -182,7 +205,7 @@
     display:flex;
     gap:4px;
     pointer-events:none;
-    z-index:500; /* ★追加：プールより上 */
+    z-index:500; /* ：プールより上 */
   }
   .reveal-card{
     width:34px;
@@ -220,12 +243,128 @@
   }
   .owned-chip svg{ width:100%; height:100%; display:block; }
 
+  /* =========================
+     ：スペシャル1用 他プレイヤー ownarea（ドロップ先）
+     - サイズは自分のownchipと同等（--chip-d）
+     ========================= */
+  /* =========================
+     ★修正：スペシャル1用 他プレイヤー ownarea（ドロップ先）
+     - ネームタグ(.player-tag)を囲む「枠」にする
+     - player-wrap 内で absolute にしてタグに被せる
+     ========================= */
+  .other-ownarea{
+    position:absolute;
+    /* tag を囲むように上下左右に余白を取る */
+    left:-6px;
+    right:-6px;
+    top:-6px;
+    bottom:-6px;
+
+    border-radius:999px;
+    border:2px dashed rgba(0,0,0,.75);
+    background:rgba(255,255,255,.10);
+    box-shadow:0 6px 16px rgba(0,0,0,.12);
+
+    /* 見た目の矢印などは不要なので非表示 */
+    display:block;
+
+    user-select:none;
+    pointer-events:none; /* 当たり判定はJSでrectを見る */
+    opacity:.35;
+    transform:translateY(0);
+
+    /* player-tag の背面に置く（tagのz-index:212より小さく） */
+    z-index:211;
+  }
+
+
+  /* スペシャル1中だけ分かりやすく光らせる */
+  .player-circle.special1-active .other-ownarea{
+    opacity:1;
+    outline:2px solid rgba(22,163,74,.9);
+    outline-offset:2px;
+    animation: ownAreaPulse .85s cubic-bezier(.22,.84,.44,1) infinite;
+  }
+  @keyframes ownAreaPulse{
+    0%   { transform:translateY(0) scale(1); }
+    50%  { transform:translateY(-1px) scale(1.08); }
+    100% { transform:translateY(0) scale(1); }
+  }
+
+
   .owned-chip.draggable{ cursor:grab; }
   .owned-chip.draggable:active{ cursor:grabbing; }
 
   .my-hand-wrapper{margin-top:16px;text-align:center;}
   .my-hand-title{display:none;}
   .my-hand{display:flex;justify-content:center;gap:8px;margin-top:6px;min-height:100px;}
+
+ /* =========================
+     ：スペシャル1/5 手札の大小アニメ & ドラッグ状態
+     ========================= */
+  .my-hand.special-pulse > *{
+    animation: handPulse .85s cubic-bezier(.22,.84,.44,1) infinite;
+    transform-origin:center;
+  }
+  @keyframes handPulse{
+    0%   { transform:translateY(0)   scale(1); }
+    50%  { transform:translateY(-2px) scale(1.06); }
+    100% { transform:translateY(0)   scale(1); }
+  }
+  .my-hand.special-dragging .pcard,
+  .my-hand.special-dragging .backcard{
+    cursor:grab;
+    touch-action:none;
+  }
+  .my-hand.special-dragging .pcard:active,
+  .my-hand.special-dragging .backcard:active{
+    cursor:grabbing;
+  }
+
+  /* =========================
+     ：相手画面中央に3秒表示（カード＋プレイヤー名）
+     ========================= */
+  .special-card-show{
+    position:fixed; inset:0;
+    display:flex; align-items:center; justify-content:center;
+    z-index:2147483647;
+    pointer-events:none;
+  }
+  .special-card-show.hidden{ display:none; }
+  .special-card-panel{
+    position:relative;
+    padding:14px 16px 12px;
+    border-radius:18px;
+    background:rgba(20,20,20,.92);
+    box-shadow:0 18px 40px rgba(0,0,0,.35);
+    transform:translateY(6px) scale(.98);
+    opacity:0;
+    animation:specialShowIn .18s cubic-bezier(.22,.84,.44,1) forwards;
+  }
+  @keyframes specialShowIn{
+    to{ transform:translateY(0) scale(1); opacity:1; }
+  }
+  .special-card-name{
+    font-family:'Fredoka','Baloo 2',system-ui,sans-serif;
+    font-weight:800;
+    color:#fff;
+    text-align:center;
+    margin:0 0 10px;
+    letter-spacing:.02em;
+    font-size:16px;
+    white-space:nowrap;
+  }
+  .special-card-slot{
+    display:flex; justify-content:center;
+  }
+  .special-card-slot .pcard,
+  .special-card-slot .backcard{
+    width:120px !important;
+    height:180px !important;
+    border-radius:14px !important;
+    box-shadow:0 18px 44px rgba(0,0,0,.45) !important;
+    border-color:rgba(255,255,255,.25) !important;
+  }
 
   .dialog-backdrop{
     position:fixed;inset:0;background:rgba(0,0,0,.35);
@@ -390,6 +529,7 @@
     font-weight:900;
     line-height:1;
     gap:0px;
+z-index: 10; 
   }
   .pcard .corner .rank{ font-size:10px; }
   .pcard .corner .suit{ font-size:10px; transform:translateY(-1px); }
@@ -479,7 +619,7 @@
   }
 
   /* =========================
-     ★追加：左上のマネー/サイレンカード
+     ：左上のマネー/サイレンカード
      ========================= */
   .side-cards{
     position:fixed;
@@ -561,7 +701,7 @@
   }
 
   /* =========================================================
-     ★追加：手札公開の「最強5枚＋役」演出（中央に2秒）
+     ：手札公開の「最強5枚＋役」演出（中央に2秒）
      - 英語表記
      - ポップなフォント
      ========================================================= */
@@ -677,7 +817,7 @@
   }
 
 /* =========================
-   ★追加：左下の2つの山札（独立機能）
+   ：左下の2つの山札（独立機能）
    ========================= */
 .ex-two-decks{
   position:fixed;
@@ -784,6 +924,69 @@
 /* 追加機能専用ダイアログ（既存ダイアログには干渉しない） */
 #exDialogBackdrop{ z-index:99999; }
 
+/* =========================================================
+   ★裏面画像 差し替え（CSSだけで対応・既存ロジック無変更）
+   - 通常カード裏面 / 中央の山札 / 配布フライカード：gangura.jpg
+   - 左下 追加山札（左）：specialyama.jpg
+   - 左下 追加山札（右）：challengeyama.jpg
+   ========================================================= */
+
+/* 画像ファイルはHTMLと同じフォルダに置く前提 */
+:root{
+  --card-back-url: url('gangura.jpg');
+  --ex-spec-back-url: url('specialyama.jpg');
+  --ex-chal-back-url: url('challengeyama.jpg');
+}
+
+/* ① トランプ裏面（場札の裏・手札の裏） */
+.backcard{
+  background: var(--card-back-url) center/cover no-repeat !important;
+}
+
+/* ② 中央の山札の見た目（積層レイヤー） */
+.deck-layer{
+  background: var(--card-back-url) center/cover no-repeat !important;
+}
+
+/* ③ 配布アニメで飛ぶカード（fly-card）も同じ裏面に */
+.fly-card{
+  background: var(--card-back-url) center/cover no-repeat !important;
+}
+
+/* ④ 左下の追加山札：左（スペシャリスト） */
+#exSpecStack{
+  background: var(--ex-spec-back-url) center/cover no-repeat !important;
+}
+#exSpecStack .ex-deck-layer{
+  background: var(--ex-spec-back-url) center/cover no-repeat !important;
+}
+
+/* ⑤ 左下の追加山札：右（チャレンジ） */
+#exChalStack{
+  background: var(--ex-chal-back-url) center/cover no-repeat !important;
+}
+#exChalStack .ex-deck-layer{
+  background: var(--ex-chal-back-url) center/cover no-repeat !important;
+}
+
+
+/* 絵札画像用のスタイル */
+.face-image-container {
+  position: absolute;
+  inset: 14px 10px;
+  border-radius: 8px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.face-image-container img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: center;
+}
 
 </style>
 </head>
@@ -853,7 +1056,7 @@
 <button id="hostSettingsBtn" class="host-settings-btn" title="設定">⚙</button>
 <button id="helpBtn" class="help-btn" title="正体カード一覧">？</button>
 
-<!-- ★追加：左上カード（マネー/サイレン） -->
+<!-- ：左上カード（マネー/サイレン） -->
 <div id="sideCards" class="side-cards hidden" aria-label="サイドカード">
   <div id="moneyRow" class="side-row" aria-label="マネーカード"></div>
   <div id="sirenRow" class="side-row" aria-label="サイレンカード"></div>
@@ -892,7 +1095,7 @@
   </div>
 </div>
 
-<!-- ★追加：手札公開の役演出（中央2秒） -->
+<!-- ：手札公開の役演出（中央2秒） -->
 <div id="handResultPop" class="hand-result-pop hidden" aria-hidden="true">
   <div class="hand-result-card" id="handResultCard">
     <div class="hand-result-top">
@@ -904,7 +1107,18 @@
 </div>
 
 <!-- =========================
-     ★追加：左下の2つの山札（独立機能）
+     ：スペシャル1（相手画面中央に3秒表示）
+     ========================= -->
+<div id="specialCardShow" class="special-card-show hidden" aria-hidden="true">
+  <div class="special-card-panel">
+    <p id="specialCardShowName" class="special-card-name">PLAYER</p>
+    <div id="specialCardShowCard" class="special-card-slot"></div>
+  </div>
+</div>
+
+
+<!-- =========================
+     ：左下の2つの山札（独立機能）
      ========================= -->
 <div id="exTwoDecks" class="ex-two-decks hidden" aria-label="追加山札">
   <div id="exSpecStack" class="ex-deck-stack" title="スペシャリスト山札">
@@ -916,7 +1130,7 @@
   </div>
 </div>
 
-<!-- ★追加機能専用：確認ポップ（既存とは完全分離） -->
+<!-- 機能専用：確認ポップ（既存とは完全分離） -->
 <div id="exDialogBackdrop" class="dialog-backdrop hidden">
   <div class="dialog-box">
     <p id="exDialogText">確認</p>
@@ -982,16 +1196,23 @@ const state = {
 
   ownCircleVisible: true,
 
-  /* ★追加：公開フェーズ（DB: rooms/{room}/reveal） */
+  /* ：公開フェーズ（DB: rooms/{room}/reveal） */
   reveal: null,
 
-  /* ★追加：左上カード（DB: rooms/{room}/sideCards） */
+  /* ：左上カード（DB: rooms/{room}/sideCards） */
   sideCards: null,
 
-  /* ★追加：公開演出の重複防止 */
+  /* ：公開演出の重複防止 */
   _revealPopInited: false,
   _prevRevealed: {},
-  _handPopTimer: 0
+  _handPopTimer: 0,
+
+  /* =========================
+     ：スペシャルカード(1/5)用
+     ========================= */
+  special: { active:false, mode:null, used:false, _overlayTimer:0 },
+  _specialSubInited: false,
+  _specialSeen: {}
 };
 
 const mainEl = document.getElementById('main');
@@ -1014,6 +1235,53 @@ const seatLabel = seatPop.querySelector('label');
 const playerCircle = document.getElementById('playerCircle');
 const myHandEl = document.getElementById('myHand');
 
+/* ：中央テーブル（捨て札のドロップ判定に使う） */
+const centerTable = document.getElementById('centerTable');
+
+/* =========================
+   ：スペシャル1用「他プレイヤー ownarea」を自動生成
+   - player-wrap が生成されたタイミングで差し込む（既存renderを壊さない）
+   ========================= */
+function ensureOtherOwnAreas(){
+  if (!playerCircle) return;
+  const wraps = playerCircle.querySelectorAll('.player-wrap');
+  wraps.forEach(w => {
+    const pid = w.dataset.pid;
+    if (!pid) return;
+    if (pid === state.userId) return; // 自分は作らない
+
+    const tag = w.querySelector('.player-tag');
+    if (!tag) return;
+
+    // 既に枠があるならOK
+    if (w.querySelector('.other-ownarea')) return;
+
+    // player-wrap を基準に absolute を効かせる（既に absolute だが念のため）
+    w.style.position = w.style.position || 'absolute';
+
+    const oa = document.createElement('div');
+    oa.className = 'other-ownarea';
+    oa.textContent = ''; // 囲み枠なので文字は不要
+
+    // ★重要：タグの「背面」に入れて囲む
+    // 先頭に入れると、後から出てくる tag より背面になりやすい
+    w.insertBefore(oa, w.firstChild);
+  });
+}
+
+
+// playerCircle 内のDOM変化を監視して自動差し込み
+if (playerCircle){
+  const mo = new MutationObserver(() => ensureOtherOwnAreas());
+  mo.observe(playerCircle, { childList:true, subtree:true });
+}
+
+
+/* ：スペシャル表示 */
+const specialCardShow = document.getElementById('specialCardShow');
+const specialCardShowName = document.getElementById('specialCardShowName');
+const specialCardShowCard = document.getElementById('specialCardShowCard');
+
 const kickDialog = document.getElementById('kickDialog');
 const kickMessage = document.getElementById('kickMessage');
 const btnKickYes = document.getElementById('btnKickYes');
@@ -1034,12 +1302,12 @@ const chipPool = document.getElementById('chipPool');
 const chipPoolArea = document.getElementById('chipPoolArea');
 const dragLayer = document.getElementById('dragLayer');
 
-/* ★追加：左上カードDOM */
+/* ：左上カードDOM */
 const sideCardsEl = document.getElementById('sideCards');
 const moneyRowEl  = document.getElementById('moneyRow');
 const sirenRowEl  = document.getElementById('sirenRow');
 
-/* ★追加：手札公開 演出DOM */
+/* ：手札公開 演出DOM */
 const handResultPop   = document.getElementById('handResultPop');
 const handResultCard  = document.getElementById('handResultCard');
 const handResultTitle = document.getElementById('handResultTitle');
@@ -1090,6 +1358,22 @@ helpBackdrop.addEventListener('click', (e) => {
   if (e.target === helpBackdrop) closeHelp();
 });
 
+/* =========================
+   ：スペシャルカード1/5 ダブルクリック
+   - ex-float-card の表示文字が "1" / "5" のとき発動
+   ========================= */
+document.addEventListener('dblclick', async (e) => {
+  const card = e.target.closest('.ex-float-card');
+  if (!card) return;
+
+  const v = (card.dataset.value || card.textContent || '').trim();
+  if (v === '1'){
+    startSpecial1();
+  } else if (v === '5'){
+    await startSpecial5();
+  }
+}, { capture:true });
+
 let pendingSeatIndexToSteal = null;
 let pendingSeatPlayerIdToSteal = null;
 let isRenderingSeatTabs = false;
@@ -1098,12 +1382,228 @@ let latestPlayers = [];
 let isDealAnimating = false;
 function sleep(ms){ return new Promise(r=>setTimeout(r, ms)); }
 
+/* =========================================================
+   ：スペシャルカード(1/5)
+   - 1: 手札パルス→手札カードをドラッグ→他人のownarea(=player-wrap)へドロップ
+       → 相手画面中央に3秒表示（カード上にプレイヤー名）
+   - 5: 山札から1枚ドロー（ドローアニメ）→手札パルス→中央(=centerTable)へ1枚捨て札→終了
+   ========================================================= */
+
+function setHandSpecialUI(on){
+  myHandEl.classList.toggle('special-pulse', !!on);
+  myHandEl.classList.toggle('special-dragging', !!on);
+}
+function pointInRect(x,y,r){
+  return x >= r.left && x <= r.right && y >= r.top && y <= r.bottom;
+}
+function getOtherPidUnderPoint(x,y){
+  // ★スペシャル1は「相手のネームタグ周辺（囲み枠）」に落としたら反応
+  const wraps = playerCircle.querySelectorAll('.player-wrap');
+  for (const w of wraps){
+    const pid = w?.dataset?.pid;
+    if (!pid || pid === state.userId) continue;
+
+    // 枠が存在する相手だけ対象（special1用）
+    const oa = w.querySelector('.other-ownarea');
+    if (!oa) continue;
+
+    // 囲み領域は player-wrap の矩形を使う（タグ＋チップ等を含むが、囲みとして安定）
+    const r = w.getBoundingClientRect();
+    if (pointInRect(x,y,r)) return pid;
+  }
+  return null;
+}
+
+
+
+function isPointInCenter(x,y){
+  // ★変更：スペシャル5は「playercircleの中（円の内側）」なら捨てられる
+  const el = playerCircle;
+  if (!el) return false;
+
+  const r = el.getBoundingClientRect();
+  const cx = r.left + r.width/2;
+  const cy = r.top  + r.height/2;
+  const rad = Math.min(r.width, r.height) / 2;
+
+  const dx = x - cx;
+  const dy = y - cy;
+  return (dx*dx + dy*dy) <= (rad*rad);
+}
+
+
+
+function showSpecialCardCenter(playerName, cardCode){
+  if (!specialCardShow) return;
+  specialCardShowName.textContent = String(playerName || 'PLAYER');
+  specialCardShowCard.innerHTML = '';
+  specialCardShowCard.appendChild(createCardElement(cardCode));
+  specialCardShow.classList.remove('hidden');
+
+  if (state.special._overlayTimer) clearTimeout(state.special._overlayTimer);
+  state.special._overlayTimer = setTimeout(() => {
+    specialCardShow.classList.add('hidden');
+  }, 3000);
+}
+
+async function emitSpecialEvent(ev){
+  if (!state.roomCode) return;
+  const id = `${Date.now()}_${Math.random().toString(16).slice(2)}`;
+  await set(ref(db, `rooms/${state.roomCode}/specialEvents/${id}`), {
+    ...ev,
+    id,
+    at: Date.now()
+  });
+}
+
+function subscribeSpecialEvents(){
+  state._specialSubInited = true;
+  const evRef = ref(db, `rooms/${state.roomCode}/specialEvents`);
+  onValue(evRef, (snap) => {
+    const all = snap.val() || {};
+    for (const [id, ev] of Object.entries(all)){
+      if (!ev) continue;
+      if (state._specialSeen[id]) continue;
+
+      // 宛先が自分なら処理
+      if (ev.toPid && ev.toPid !== state.userId) continue;
+
+      state._specialSeen[id] = true;
+
+      if (ev.type === 'S1_SHOW'){
+        showSpecialCardCenter(ev.toName || getPlayerName(ev.toPid) || 'PLAYER', ev.cardCode);
+
+        // 受信側が掃除（溜まらないように）
+        setTimeout(() => {
+          remove(ref(db, `rooms/${state.roomCode}/specialEvents/${id}`)).catch(()=>{});
+        }, 3500);
+      }
+    }
+  });
+}
+
+function endSpecialMode(){
+  state.special.active = false;
+  state.special.mode = null;
+  state.special.used = false;
+  setHandSpecialUI(false);
+
+  // ：表示クラス解除
+  playerCircle?.classList.remove('special1-active');
+  playerCircle?.classList.remove('discard-active');
+}
+
+/* ---- スペシャル1開始 ---- */
+function startSpecial1(){
+  if (state.special.active) return;
+  state.special.active = true;
+  state.special.mode = 'S1';
+  state.special.used = false;
+  setHandSpecialUI(true);
+
+  // ：相手ownareaを確実に作って強調
+  ensureOtherOwnAreas();
+  playerCircle?.classList.add('special1-active');
+}
+
+/* ---- スペシャル5開始（ドロー→捨て札1枚） ---- */
+async function startSpecial5(){
+  if (state.special.active) return;
+  state.special.active = true;
+  state.special.mode = 'S5';
+  state.special.used = false;
+  setHandSpecialUI(true);
+
+  // ：playercircle内＝捨て場表示
+  playerCircle?.classList.add('discard-active');
+
+  const drawn = await drawOneFromDeckToMe();
+  if (drawn) await playDrawAnimFromDeckToHand();
+}
+
+/* 山札から1枚引いて自分の手札に追加（DB同期） */
+async function drawOneFromDeckToMe(){
+  if (!state.roomCode) return null;
+
+  const deckRef = ref(db, `rooms/${state.roomCode}/game/deck`);
+  const handRef = ref(db, `rooms/${state.roomCode}/hands/${state.userId}/cards`);
+
+  const deckSnap = await get(deckRef);
+  const deck = deckSnap.val();
+  if (!Array.isArray(deck) || deck.length === 0) return null;
+
+  // このコードでは deal が deck.splice(0,cnt) なので「先頭がトップ」扱いに揃える
+  const code = deck[0];
+  const newDeck = deck.slice(1);
+
+  const handSnap = await get(handRef);
+  const myCards = Array.isArray(handSnap.val()) ? handSnap.val() : [];
+  const newHand = [...myCards, code];
+
+  const patch = {};
+  patch[`game/deck`] = newDeck;
+  patch[`hands/${state.userId}/cards`] = newHand;
+
+  await update(ref(db, `rooms/${state.roomCode}`), patch);
+  return code;
+}
+
+/* ドローアニメ（山札→手札）※見た目はfly-cardを流用 */
+async function playDrawAnimFromDeckToHand(){
+  const deckEl = document.getElementById('deckStack');
+  if (!deckEl || !myHandEl) return;
+
+  const from = deckEl.getBoundingClientRect();
+  const to = myHandEl.getBoundingClientRect();
+
+  const fly = document.createElement('div');
+  fly.className = 'fly-card';
+  fly.style.left = `${from.left}px`;
+  fly.style.top  = `${from.top}px`;
+  fly.style.opacity = '1';
+  fly.style.transform = 'translate(0px,0px) scale(1)';
+  document.body.appendChild(fly);
+
+  await sleep(16);
+
+  const dx = (to.left + to.width/2) - (from.left + from.width/2);
+  const dy = (to.top  + to.height/2) - (from.top  + from.height/2);
+
+  fly.style.transition = 'transform .46s cubic-bezier(.22,.84,.44,1), opacity .46s';
+  fly.style.transform = `translate(${dx}px, ${dy}px) scale(.92)`;
+  fly.style.opacity = '0.06';
+
+  await sleep(520);
+  fly.remove();
+}
+
+/* 手札から1枚捨てる（DB同期） */
+async function discardOneFromMyHand(cardCode){
+  if (!state.roomCode) return;
+
+  const handRef = ref(db, `rooms/${state.roomCode}/hands/${state.userId}/cards`);
+  const snap = await get(handRef);
+  const arr = Array.isArray(snap.val()) ? snap.val().slice() : [];
+
+  const idx = arr.indexOf(cardCode);
+  if (idx < 0) return;
+
+  arr.splice(idx, 1);
+
+  const discardId = `${Date.now()}_${Math.random().toString(16).slice(2)}`;
+  const patch = {};
+  patch[`hands/${state.userId}/cards`] = arr;
+  patch[`discard/${discardId}`] = { by: state.userId, cardCode, at: Date.now() };
+
+  await update(ref(db, `rooms/${state.roomCode}`), patch);
+}
+
 /* =========================
    ★ 左上カード（マネー/サイレン）
    ========================= */
 const SIDE_CARD_SPECS = {
-  money: { front: 'moneyomote.png', back: 'moneyura.png' },
-  siren: { front: 'silenomote.png', back: 'silenura.png' },
+  money: { front: 'moneyomote.jpg', back: 'moneyura.jpg' },
+  siren: { front: 'silenomote.jpg', back: 'silenura.jpg' },
 };
 
 function getSideArr(group){
@@ -1305,8 +1805,105 @@ async function maybeStartRevealPhaseIfReady(){
 }
 
 myHandEl.addEventListener('click', () => {
+  if (state.special?.active) return;   // ：スペシャル中はここを動かさない
   if (isMyRevealTurn()) revealMyHand();
 });
+
+/* =========================
+   ：スペシャル中の手札ドラッグ
+   ========================= */
+let _handDrag = null;
+
+function onHandDragMove(ev){
+  if (!_handDrag) return;
+  ev.preventDefault();
+  const left = ev.clientX - _handDrag.offX;
+  const top  = ev.clientY - _handDrag.offY;
+  _handDrag.ghost.style.left = `${left}px`;
+  _handDrag.ghost.style.top  = `${top}px`;
+}
+
+async function onHandDragUp(ev){
+  if (!_handDrag) return;
+  ev.preventDefault();
+
+  window.removeEventListener('pointermove', onHandDragMove);
+  window.removeEventListener('pointerup', onHandDragUp);
+  window.removeEventListener('pointercancel', onHandDragUp);
+
+  const { code, srcEl, ghost } = _handDrag;
+  _handDrag = null;
+
+  if (ghost && ghost.parentNode) ghost.remove();
+  if (srcEl && srcEl.isConnected) srcEl.style.visibility = '';
+
+  // ---- S1: 他人player-wrapへドロップで相手画面中央に3秒表示 → 終了
+  if (state.special.active && state.special.mode === 'S1'){
+    const toPid = getOtherPidUnderPoint(ev.clientX, ev.clientY);
+    if (toPid){
+      await emitSpecialEvent({
+        type:'S1_SHOW',
+        fromPid: state.userId,
+        fromName: state.userName,
+        toPid,
+        toName: getPlayerName(toPid),
+        cardCode: code
+      });
+      endSpecialMode();
+    }
+    return;
+  }
+
+  // ---- S5: 中央へドロップで捨て札1枚 → 終了
+  if (state.special.active && state.special.mode === 'S5'){
+    if (!state.special.used && isPointInCenter(ev.clientX, ev.clientY)){
+      state.special.used = true;
+      await discardOneFromMyHand(code);
+      endSpecialMode();
+    }
+    return;
+  }
+}
+
+myHandEl.addEventListener('pointerdown', (e) => {
+  if (!state.special?.active) return;
+
+  const cardEl = e.target.closest('.pcard');
+  if (!cardEl) return;
+
+  const code = (cardEl.dataset.code || '').trim();
+  if (!code) return;
+
+  e.preventDefault();
+  e.stopPropagation();
+
+  const r = cardEl.getBoundingClientRect();
+
+  const ghost = document.createElement('div');
+  ghost.className = 'fly-card';
+  ghost.style.left = `${r.left}px`;
+  ghost.style.top  = `${r.top}px`;
+  ghost.style.width  = `${r.width}px`;
+  ghost.style.height = `${r.height}px`;
+  ghost.style.pointerEvents = 'none';
+  ghost.style.zIndex = '10000';
+  ghost.innerHTML = cardEl.outerHTML; // 見た目をそのまま
+
+  document.body.appendChild(ghost);
+  cardEl.style.visibility = 'hidden';
+
+  _handDrag = {
+    code,
+    srcEl: cardEl,
+    ghost,
+    offX: e.clientX - r.left,
+    offY: e.clientY - r.top
+  };
+
+  window.addEventListener('pointermove', onHandDragMove, { passive:false });
+  window.addEventListener('pointerup', onHandDragUp, { passive:false });
+  window.addEventListener('pointercancel', onHandDragUp, { passive:false });
+}, { passive:false });
 
 function generateRoomCode(length = 6){
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
@@ -1350,7 +1947,13 @@ function updateHostUI(){
 
   chipPool.classList.toggle('hidden', joinBox.classList.contains('hidden') ? false : true);
   sideCardsEl.classList.toggle('hidden', joinBox.classList.contains('hidden') ? false : true);
+
+  /* ：入室後（roomCodeがある時）に1回だけ購読 */
+  if (state.roomCode && !state._specialSubInited){
+    subscribeSpecialEvents();
+  }
 }
+
 
 function setOwnCircleVisible(visible){
   state.ownCircleVisible = !!visible;
@@ -1606,7 +2209,7 @@ function buildChipSetForPlayers(playerCount){
   return chips;
 }
 
-/* ★追加：人数に応じてチッププールサイズを可変に */
+/* ：人数に応じてチッププールサイズを可変に */
 function resizeChipPoolForPlayers(n){
   const d = getChipD();
   const gap = Math.max(2, Math.round(d * 0.18));
@@ -1731,7 +2334,7 @@ function chipSortKey(chipId){
 
 let ownedDrag = null;
 
-/* ====== ★追加：チップをプールへ返却（owner解除） ====== */
+/* ====== ：チップをプールへ返却（owner解除） ====== */
 async function returnChipToPool(chipId){
   if (!state.roomCode) return;
   try{
@@ -2228,7 +2831,7 @@ function renderChipPool(playerCount){
     return;
   }
 
-  /* ★追加：人数に応じてプールサイズを更新（先にサイズ確定→rect計測が安定） */
+  /* ：人数に応じてプールサイズを更新（先にサイズ確定→rect計測が安定） */
   resizeChipPoolForPlayers(n);
 
   const needRebuild = (chipState.builtFor !== n);
@@ -2312,6 +2915,38 @@ function renderChipPool(playerCount){
   applyChipFacesToPool();
 }
 
+async function hostStartGameWithDealCount(dealCount = 2){
+  if (!state.isHost) return;
+  if (!state.roomCode) return;
+
+  const cnt = Math.max(1, Math.floor(Number(dealCount || 2)));
+
+  // 配布順：現在認識しているプレイヤー（既存の start と同じ前提）
+  const order = (latestPlayers || []).map(p => p.id).filter(Boolean);
+  if (!order.length) return;
+
+  // デッキ生成＆シャッフル
+  const deck = shuffleInPlace(buildDeck52());
+
+  // 各プレイヤーにcnt枚配布
+  const patch = {};
+  for (const pid of order){
+    const cards = deck.splice(0, cnt);
+    patch[`hands/${pid}/cards`] = cards;
+  }
+
+  // game本体（既存のスタートと同等：board0枚、deck残り、dealでアニメ同期）
+  const dealId = Date.now();
+  patch[`game/started`] = true;
+  patch[`game/deck`] = deck;
+  patch[`game/boardCodes`] = [];
+  patch[`game/boardFaceUpCount`] = 0;
+  patch[`game/deal`] = { id: dealId, at: dealId, order, count: cnt };
+
+  await update(ref(db, `rooms/${state.roomCode}`), patch);
+}
+
+
 /* =========================
    ★ 52枚デッキ・カード
    ========================= */
@@ -2363,6 +2998,7 @@ function createCardElement(code){
   el.className = `pcard ${c.isRed ? 'red' : 'black'}`;
   el.dataset.rank = c.rank;
   el.dataset.suit = c.suit;
+  el.dataset.code = String(code);
 
   const cornerTL = document.createElement('div');
   cornerTL.className = 'corner tl';
@@ -2382,17 +3018,97 @@ function createCardElement(code){
   pips.className = 'pips';
 
   if (isFace){
-    const face = document.createElement('div');
-    face.className = 'face-holder';
-    face.textContent = c.rank;
+    // 絵札の場合
+    const suitCode = {
+      '♥': 'H',
+      '♦': 'D', 
+      '♠': 'S',
+      '♣': 'C'
+    }[c.suit];
+    
+    const rankCode = {
+      'J': '11',
+      'Q': '12',
+      'K': '13'
+    }[c.rank];
+    
+    if (suitCode && rankCode) {
+      // 画像ファイル名（例: H11.jpg, S13.jpg）
+      const imgFileName = `${suitCode}${rankCode}.jpg`;
+      
+      // 画像を表示する要素を作成
+      const imgContainer = document.createElement('div');
+      imgContainer.className = 'face-image-container';
+      imgContainer.style.position = 'absolute';
+      imgContainer.style.top = '14px';
+      imgContainer.style.left = '10px';
+      imgContainer.style.right = '10px';
+      imgContainer.style.bottom = '14px';
+      imgContainer.style.borderRadius = '8px';
+      imgContainer.style.overflow = 'hidden';
+      imgContainer.style.display = 'flex';
+      imgContainer.style.alignItems = 'center';
+      imgContainer.style.justifyContent = 'center';
+            imgContainer.style.zIndex = '1'; // 画像を背面に
 
-    const fs = document.createElement('div');
-    fs.className = 'face-suit';
-    fs.textContent = c.suit;
 
-    el.appendChild(face);
-    el.appendChild(fs);
+      const img = document.createElement('img');
+      img.src = imgFileName;
+      img.alt = `${c.rank} of ${c.suit}`;
+      img.style.width = '100%';
+      img.style.height = '100%';
+      img.style.objectFit = 'contain';
+      img.style.objectPosition = 'center';
+      
+      // 画像読み込みエラー時のフォールバック
+      img.onerror = function() {
+        // 画像が読み込めない場合はテキスト表示に戻す
+        imgContainer.innerHTML = '';
+        const face = document.createElement('div');
+        face.className = 'face-holder';
+        face.textContent = c.rank;
+        face.style.position = 'absolute';
+        face.style.inset = '0';
+        face.style.display = 'flex';
+        face.style.alignItems = 'center';
+        face.style.justifyContent = 'center';
+        face.style.fontWeight = '1000';
+        face.style.fontSize = '28px';
+        face.style.opacity = '0.20';
+        face.style.letterSpacing = '0.02em';
+        
+        const fs = document.createElement('div');
+        fs.className = 'face-suit';
+        fs.textContent = c.suit;
+        fs.style.position = 'absolute';
+        fs.style.left = '50%';
+        fs.style.top = '52%';
+        fs.style.transform = 'translate(-50%, -50%)';
+        fs.style.fontSize = '22px';
+        fs.style.opacity = '0.35';
+        fs.style.fontWeight = '900';
+        
+        imgContainer.appendChild(face);
+        imgContainer.appendChild(fs);
+      };
+      
+      imgContainer.appendChild(img);
+      el.appendChild(imgContainer);
+    } else {
+      // 通常のテキスト表示（フォールバック）
+      const face = document.createElement('div');
+      face.className = 'face-holder';
+      face.textContent = c.rank;
+
+      const fs = document.createElement('div');
+      fs.className = 'face-suit';
+      fs.textContent = c.suit;
+
+      el.appendChild(face);
+      el.appendChild(fs);
+    }
   } else {
+    // 数字カードの処理（既存のまま）
     if (c.rank === 'A'){
       const {x,y} = pipToPercent(2,1);
       const pip = document.createElement('div');
@@ -2424,7 +3140,7 @@ function createBackCardElement(){
 }
 
 /* =========================================================
-   ★追加：ポーカー役判定（7枚→最強5枚）
+   ：ポーカー役判定（7枚→最強5枚）
    - 5枚組み合わせ全探索（最大21通り）
    - 英語役名 + タイブレーク
    ========================================================= */
@@ -2856,9 +3572,11 @@ async function animateOneFly(startX, startY, endX, endY, extraRot=0){
   await anim.finished.catch(()=>{});
   el.remove();
 }
-async function runDealAnimation(order){
+async function runDealAnimation(order, dealCount = 2){
   if (isDealAnimating) return;
   isDealAnimating = true;
+
+  const count = Math.max(0, Math.floor(Number(dealCount || 2)));
 
   state.dealShownCounts = {};
   order.forEach(pid => state.dealShownCounts[pid] = 0);
@@ -2874,7 +3592,7 @@ async function runDealAnimation(order){
     const startX = d.left + d.width/2;
     const startY = d.top  + d.height/2;
 
-    for (let round=0; round<2; round++){
+    for (let round=0; round<count; round++){
       for (let i=0; i<order.length; i++){
         const pid = order[i];
         const wrap = document.querySelector(`.player-wrap[data-pid="${pid}"]`);
@@ -2900,6 +3618,141 @@ async function runDealAnimation(order){
     renderHands();
   }
 }
+
+function getCenterTablePoint(){
+  const ct = document.getElementById('centerTable');
+  if (!ct) return { x: window.innerWidth/2, y: window.innerHeight/2 };
+  const r = ct.getBoundingClientRect();
+  return { x: r.left + r.width/2, y: r.top + r.height/2 };
+}
+function getPlayerPoint(pid){
+  const wrap = document.querySelector(`.player-wrap[data-pid="${pid}"]`);
+  if (!wrap) return { x: window.innerWidth/2, y: window.innerHeight/2 };
+  const r = wrap.getBoundingClientRect();
+  return { x: r.left + 10, y: r.top + r.height/2 + 18 };
+}
+
+
+function board4thIsFaceUpJQK(g){
+  const board = Array.isArray(g?.boardCodes) ? g.boardCodes : [];
+  const faceUp = Number(g?.boardFaceUpCount || 0);
+  if (board.length < 4) return false;
+  if (faceUp < 4) return false; // 4枚目が表向きである必要
+  const c = parseCard(board[3]);
+  if (!c) return false;
+  return (c.rank === 'J' || c.rank === 'Q' || c.rank === 'K');
+}
+
+async function triggerC3Effect(){
+  if (!state.roomCode) return;
+
+  // 多重発火ガード（直近fxが同種なら無視）
+  const gameRef = ref(db, `rooms/${state.roomCode}/game`);
+  const [gSnap, ownersSnap, handsSnap] = await Promise.all([
+    get(gameRef),
+    get(ref(db, `rooms/${state.roomCode}/chipOwners`)),
+    get(ref(db, `rooms/${state.roomCode}/hands`))
+  ]);
+
+  const g = gSnap.val() || {};
+  if (!g.started) return;
+  if (!board4thIsFaceUpJQK(g)) return;
+
+  const fx = g.fx || null;
+  if (fx && fx.type === 'C3_DRAW2' && typeof fx.at === 'number' && (Date.now() - fx.at) < 1500){
+    return;
+  }
+
+  const owners = ownersSnap.val() || {};
+  const targetPid = owners["白_1"];
+  if (!targetPid) return;
+
+  const hands = handsSnap.val() || {};
+  const prevHand = (hands[targetPid]?.cards && Array.isArray(hands[targetPid].cards)) ? hands[targetPid].cards : [];
+  const discardCount = prevHand.length;
+
+  const deck = Array.isArray(g.deck) ? [...g.deck] : [];
+  if (deck.length < 2) return;
+
+  const newCards = deck.splice(0, 2);
+
+  const fxId = Date.now();
+  const patch = {};
+  patch[`hands/${targetPid}/cards`] = newCards;
+  patch[`game/deck`] = deck;
+  patch[`game/fx`] = { id: fxId, at: fxId, type: 'C3_DRAW2', pid: targetPid, discardCount, drawCount: 2 };
+
+  await update(ref(db, `rooms/${state.roomCode}`), patch);
+}
+
+
+function getFxSeenKey(){
+  return state.roomCode ? `fxSeen_${state.roomCode}` : 'fxSeen_unknown';
+}
+
+let _fxAnimating = false;
+
+async function maybePlayFxFromGame(){
+  const fx = state.game?.fx;
+  if (!fx || !fx.id || !fx.type) return;
+
+  // 古すぎるのは無視
+  if (typeof fx.at === 'number' && (Date.now() - fx.at) > 20000) {
+    sessionStorage.setItem(getFxSeenKey(), String(fx.id));
+    return;
+  }
+
+  const seen = sessionStorage.getItem(getFxSeenKey());
+  if (seen === String(fx.id)) return;
+
+  sessionStorage.setItem(getFxSeenKey(), String(fx.id));
+
+  if (fx.type === 'C3_DRAW2'){
+    if (_fxAnimating) return;
+    _fxAnimating = true;
+    try{
+      const pid = fx.pid;
+      const discardCount = Math.max(0, Math.floor(Number(fx.discardCount || 0)));
+      const drawCount = Math.max(0, Math.floor(Number(fx.drawCount || 2)));
+
+      // 自分が対象なら「捨て→引く」順になるよう一時的に手札を隠す
+      const wasHidden = myHandEl.style.visibility === 'hidden';
+      if (pid === state.userId) myHandEl.style.visibility = 'hidden';
+
+      const from = getPlayerPoint(pid);
+      const center = getCenterTablePoint();
+
+      // 捨てるアニメ（手札枚数分、裏カードが中心へ）
+      for (let i=0; i<discardCount; i++){
+        await animateOneFly(from.x, from.y, center.x, center.y, (i%2?1:-1));
+        await sleep(40);
+      }
+
+      await sleep(120);
+
+      // 2枚ドロー（山札→対象プレイヤー）
+      const deckEl = document.getElementById('deckStack');
+      const d = deckEl ? deckEl.getBoundingClientRect() : null;
+      const startX = d ? (d.left + d.width/2) : (window.innerWidth/2);
+      const startY = d ? (d.top  + d.height/2) : (window.innerHeight/2);
+
+      const to = getPlayerPoint(pid);
+      for (let i=0; i<drawCount; i++){
+        await animateOneFly(startX, startY, to.x, to.y, (i%2?1:-1));
+        await sleep(60);
+      }
+
+      await sleep(50);
+      if (pid === state.userId && !wasHidden) myHandEl.style.visibility = '';
+      renderHands();
+    } finally {
+      _fxAnimating = false;
+    }
+  }
+}
+
+
+
 async function maybePlayDealFromGame(){
   const started = !!state.game?.started;
   const deal = state.game?.deal;
@@ -2919,7 +3772,9 @@ async function maybePlayDealFromGame(){
   const ok = await waitForTags(deal.order);
   if (!ok) return;
 
-  await runDealAnimation(deal.order);
+const cnt = Number(deal.count || 2);
+await runDealAnimation(deal.order, cnt);
+
 }
 
 /* =========================
@@ -3041,6 +3896,8 @@ function subscribeGame(){
     state.game = v ? { ...base, ...v } : base;
     renderCenterBoard();
     maybePlayDealFromGame();
+  maybePlayFxFromGame();
+
   });
 }
 function subscribeChipOwners(){
@@ -3075,10 +3932,36 @@ function subscribeReveal(){
     state.reveal = snap.val() || null;
     renderHands();
 
-    // ★追加：公開された瞬間に「最強5枚＋役」演出（中央2秒）
+    // ：公開された瞬間に「最強5枚＋役」演出（中央2秒）
     maybeShowRevealHandPop();
   });
 }
+
+document.addEventListener('dblclick', async (e) => {
+  const el = e.target.closest('.ex-float-card');
+  if (!el) return;
+
+  // 表示文字 or datasetからカードコード取得（どちらでも動くように）
+  const code = (el.dataset.code || el.textContent || '').trim();
+
+  // C10：スタート同等＋3枚配布（スタートと同じくホストのみ）
+  if (code === 'C10'){
+    e.preventDefault();
+    e.stopPropagation();
+    if (!state.isHost) return;
+    await hostStartGameWithDealCount(3);
+    return;
+  }
+
+  // C3：条件一致時のみ、白1所持者が捨て→2枚ドロー（誰が押してもOKにしてある）
+  if (code === 'C3'){
+    e.preventDefault();
+    e.stopPropagation();
+    await triggerC3Effect();
+    return;
+  }
+}, true);
+
 
 /* =========================
    ★ 手札描画
@@ -3152,7 +4035,7 @@ btnJoin.addEventListener('click', async () => {
   subscribeChipFaceDown();
   subscribeReveal();
 
-  /* ★追加：左上カード購読 */
+  /* ：左上カード購読 */
   subscribeSideCards();
 
   syncSeatUI();
@@ -3510,7 +4393,7 @@ async function ensureGameExistsIfHost(){
 }
 
 /* =========================================================
-   ★追加：スタート/リセット時に「チップを全リセット」
+   ：スタート/リセット時に「チップを全リセット」
    - owners: 全解除
    - faceDown: 全解除
    - poolPos: 初期配置へ戻す（→削除して初期レイアウトを再生成＆ホストが再コミット）
@@ -3534,7 +4417,7 @@ async function resetAllChipsNow(){
   state.chipFaceDown = {};
   state.reveal = null;
 
-  // ★追加：公開演出の履歴も初期化
+  // ：公開演出の履歴も初期化
   state._revealPopInited = false;
   state._prevRevealed = {};
 
@@ -3609,14 +4492,9 @@ btnStartPopClose.addEventListener('click', () => {
 });
 
 btnGameStart.addEventListener('click', async () => {
-  if (!state.isHost) return;
-
-  // ★ここが追加：スタート時にチップを全リセット
-  await resetAllChipsNow();
-
-  await startGameDeal();
-  startPop.classList.add('hidden');
+  await hostStartGameWithDealCount(2);
 });
+
 
 btnResetRoom.addEventListener('click', async () => {
   if (!state.isHost || !state.roomCode) return;
@@ -3632,7 +4510,7 @@ btnResetRoom.addEventListener('click', async () => {
     remove(ref(db, `${base}/chipPoolPos`)),
     remove(ref(db, `${base}/chipFaceDown`)),
     remove(ref(db, `${base}/reveal`)),
-    /* ★追加：リセット時は左上カードも全部裏（=状態削除→デフォルト裏表示） */
+    /* ：リセット時は左上カードも全部裏（=状態削除→デフォルト裏表示） */
     remove(ref(db, `${base}/sideCards`)),
   ]);
 
@@ -3647,7 +4525,7 @@ btnResetRoom.addEventListener('click', async () => {
   state.sideCards = null;
   renderSideCards();
 
-  // ★追加：公開演出の履歴も初期化
+  // ：公開演出の履歴も初期化
   state._revealPopInited = false;
   state._prevRevealed = {};
 
@@ -3664,7 +4542,7 @@ window.addEventListener('load', () => {
 });
 
 /* =========================================================
-   ★追加：左下の2つの山札（スペシャリスト/チャレンジ）【完全独立】
+   ：左下の2つの山札（スペシャリスト/チャレンジ）【完全独立】
    DB: rooms/{room}/twoDecks
    ========================================================= */
 
@@ -4001,20 +4879,9 @@ function exMakeCardEl(cardId, card){
     firedLong = false;
   };
 
-  el.addEventListener('pointerdown', async (e) => {
+el.addEventListener('pointerdown', async (e) => {
     e.preventDefault();
     e.stopPropagation();
-
-    // lock（ゆるい）
-    try{
-      await update(ref(db, exRoomPath(`cards/${cardId}`)), {
-        lockBy: state.userId,
-        lockAt: exNow(),
-        z: exNow(),
-        updatedAt: exNow(),
-        updatedBy: state.userId
-      });
-    }catch(e2){}
 
     firedLong = false;
     press = { x:e.clientX, y:e.clientY, t:0 };
@@ -4023,6 +4890,15 @@ function exMakeCardEl(cardId, card){
       // 返却ポップ（ドラッグと競合しない）
       await exReturnCardToBottom(cardId);
     }, EX_LONGPRESS_MS);
+
+    // lock（ゆるい）
+    update(ref(db, exRoomPath(`cards/${cardId}`)), {
+      lockBy: state.userId,
+      lockAt: exNow(),
+      z: exNow(),
+      updatedAt: exNow(),
+      updatedBy: state.userId
+    }).catch(()=>{});
 
     // drag start
     const r = el.getBoundingClientRect();
@@ -4041,6 +4917,11 @@ function exMakeCardEl(cardId, card){
     window.addEventListener('pointermove', onMove, { passive:false });
     window.addEventListener('pointerup', onUp, { passive:false });
     window.addEventListener('pointercancel', onUp, { passive:false });
+  }, { passive:false });
+
+  el.addEventListener('dblclick', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
   }, { passive:false });
 
   function exOnCardMove(e){
