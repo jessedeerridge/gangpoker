@@ -1088,7 +1088,14 @@ z-index: 10;
 .my-hand .special6-picked .pcard,
 .my-hand .special6-picked .backcard{
   border:2px solid #f97316;
-  box-shadow:0 6px 16px rgba(249,115,22,.35);}
+  box-shadow:0 6px 16px rgba(249,115,22,.35);
+}
+
+/* ★追加：EXCHANGE開始と同時に、選んだカードを「見た目だけ」消す */
+.my-hand.special6-exchanging .special6-hide-now{
+  visibility:hidden;
+  opacity:0;
+}
 
 /* ★追加：束の箱サイズをカードサイズに合わせて持たせる */
 .s9-shuffle-stack{
@@ -1340,7 +1347,10 @@ const state = {
   special6: null,
   _special6SubInited: false,
   _special6SeenStage: null,
-  _special6Finalizing: false
+  _special6Finalizing: false,
+  _special6SelectHandSnap: null, // SELECT中に保持する「交換前の自分手札」
+  _special6HoldHandSnap: null,   // EXCHANGE中に表示を固定する「交換前の自分手札」
+
 };
 
 
@@ -1445,32 +1455,428 @@ const handResultSub   = document.getElementById('handResultSub');
 const handResultCards = document.getElementById('handResultCards');
 
 const ROLE_HELP = [
-  { name: "カード1", text: "ああああ" },
-  { name: "カード2", text: "いいいい" },
-  { name: "カード3", text: "うううう" },
-  { name: "カード4", text: "うううう" },
+  { 
+    name: "ロイヤルフラッシュ", 
+    text: "同じスートのA, K, Q, J, 10。最強の役です。\n・同じ役同士の場合は引き分け。",
+    example: ["♥A", "♥K", "♥Q", "♥J", "♥10"],
+    highlight: [0, 1, 2, 3, 4]
+  },
+  { 
+    name: "ストレートフラッシュ", 
+    text: "同じスートで数字が連続した5枚。\n・同じ場合は高い数字のストレートが勝ち。\n・A-2-3-4-5は一番弱いストレート。",
+    example: ["♥7", "♥8", "♥9", "♥10", "♥J"],
+    highlight: [0, 1, 2, 3, 4]
+  },
+  { 
+    name: "フォーカード", 
+    text: "同じ数字のカード4枚。\n・まず4枚の数字を比較（高い方が勝ち）。\n・同じ場合はキッカー（残り1枚）を比較。",
+    example: ["♠K", "♥K", "♦K", "♣K", "♥2"],
+    highlight: [0, 1, 2, 3]
+  },
+  { 
+    name: "フルハウス", 
+    text: "スリーカードとワンペアの組み合わせ。\n・まずスリーカードの数字を比較。\n・同じ場合はペアの数字を比較。",
+    example: ["♠5", "♥5", "♦5", "♣Q", "♥Q"],
+    highlight: [0, 1, 2, 3, 4]
+  },
+  { 
+    name: "フラッシュ", 
+    text: "同じスートのカード5枚。\n・数字の高い順に比較（高い方が勝ち）。\n・すべて同じ場合は引き分け。",
+    example: ["♠A", "♠J", "♠9", "♠6", "♠3"],
+    highlight: [0, 1, 2, 3, 4]
+  },
+  { 
+    name: "ストレート", 
+    text: "スートがバラバラでも数字が連続した5枚。\n・高い数字のストレートが勝ち。\n・A-2-3-4-5は一番弱いストレート。",
+    example: ["♠3", "♥4", "♦5", "♣6", "♠7"],
+    highlight: [0, 1, 2, 3, 4]
+  },
+  { 
+    name: "スリーカード", 
+    text: "同じ数字のカード3枚。\n・まずスリーカードの数字を比較。\n・同じ場合は残り2枚の高い順に比較（キッカー）。",
+    example: ["♠J", "♥J", "♦J", "♣5", "♥2"],
+    highlight: [0, 1, 2]
+  },
+  { 
+    name: "ツーペア", 
+    text: "ペアが2組。\n・高い方のペアを比較。\n・同じ場合は低い方のペアを比較。\n・それも同じ場合はキッカーで比較。",
+    example: ["♠9", "♥9", "♦A", "♣A", "♠2"],
+    highlight: [0, 1, 2, 3]
+  },
+  { 
+    name: "ワンペア", 
+    text: "ペアが1組。\n・まずペアの数字を比較。\n・同じ場合は残り3枚を高い順に比較。",
+    example: ["♠K", "♥K", "♦5", "♣8", "♠2"],
+    highlight: [0, 1]
+  },
+  { 
+    name: "ハイカード", 
+    text: "役が成立しない場合。\n・一番高いカードを比較。\n・同じ場合は次に高いカードを比較。\n・すべて同じ場合は引き分け。",
+    example: ["♥A", "♠K", "♥J", "♠9", "♣7"],
+    highlight: [0],
+    specialExample: {
+      title: "タイ",
+      description: "二人ともワンペア（5）を作っています。もう一枚のカードはBさんのほうが高いが、どちらのカードも場より低いので採用せず、タイ（同率）になります。",
+      centerCards: ["♥5", "♠A", "♠K", "♠Q", "♠J"], // 場のカード5枚
+      leftCards: ["♠5", "♥2"], // Aさんの手札2枚
+      rightCards: ["♦5", "♥4"], // Bさんの手札2枚
+      highlightCenter: [0], // 場の5
+      highlightLeft: [0], // Aさんの5（ワンペアの一部）
+      highlightRight: [0], // Bさんの5（ワンペアの一部）
+      showCenterPair: [0, 0] // 場の5と手札の5がペアになることを示す
+    }
+  }
 ];
 
 function renderHelpList(){
   helpBody.innerHTML = '';
+  
+  // ポップアップのタイトルを変更
+  const helpTitle = document.querySelector('.help-pop-title');
+  if (helpTitle) {
+    helpTitle.textContent = 'ポーカーの役';
+  }
+  
   ROLE_HELP.forEach((r, idx) => {
     const row = document.createElement('div');
     row.className = 'role-row';
-
-    const card = document.createElement('div');
-    card.className = 'role-card';
-    card.textContent = `CARD ${idx+1}`;
-
+    
+    // 左側：カードの例を表示
+    const cardContainer = document.createElement('div');
+    cardContainer.className = 'role-card';
+    cardContainer.style.cssText = `
+      width: 180px;
+      height: 98px;
+      border-radius: 8px;
+      border: 1px solid #ddd;
+      background: #f8f8f8;
+      box-shadow: 0 4px 12px rgba(0,0,0,.08);
+      flex: 0 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      overflow: visible;
+    `;
+    
+    // 5枚のカードを重ねて表示
+    const cards = r.example || [];
+    const highlights = r.highlight || [];
+    
+    cards.forEach((cardCode, cardIndex) => {
+      const cardEl = createCardElement(cardCode);
+      
+      // 強調するカードかどうかで透明度を調整
+      const isHighlighted = highlights.includes(cardIndex);
+      
+      cardEl.style.cssText = `
+        position: absolute;
+        width: 45px !important;
+        height: 68px !important;
+        left: ${15 + cardIndex * 22}px;
+        z-index: ${cards.length - cardIndex};
+        transform: rotate(${cardIndex === 2 ? '0' : cardIndex < 2 ? '-2' : '2'}deg);
+        box-shadow: 0 2px 6px rgba(0,0,0,.15);
+        opacity: ${isHighlighted ? '1' : '0.5'};
+        filter: ${isHighlighted ? 'none' : 'brightness(0.9)'};
+      `;
+      
+      // 強調されていないカードはさらに色を薄く
+      if (!isHighlighted) {
+        cardEl.style.filter = 'brightness(0.85) saturate(0.8)';
+      }
+      
+      // 角の文字を小さく
+      const corners = cardEl.querySelectorAll('.corner');
+      corners.forEach(corner => {
+        corner.querySelectorAll('.rank, .suit').forEach(el => {
+          el.style.fontSize = '7px';
+        });
+      });
+      
+      // 絵札/数字の調整
+      const faceHolder = cardEl.querySelector('.face-holder');
+      if (faceHolder) faceHolder.style.fontSize = '16px';
+      const faceSuit = cardEl.querySelector('.face-suit');
+      if (faceSuit) faceSuit.style.fontSize = '12px';
+      const pips = cardEl.querySelectorAll('.pip');
+      pips.forEach(pip => {
+        pip.style.fontSize = '9px';
+      });
+      const aPip = cardEl.querySelector('[data-rank="A"] .pip');
+      if (aPip) aPip.style.fontSize = '18px';
+      
+      cardContainer.appendChild(cardEl);
+    });
+    
+    // 右側：説明
     const desc = document.createElement('div');
     desc.className = 'role-desc';
-    desc.innerHTML = `
-      <div class="name">${r.name}</div>
-      <div class="text">${r.text}</div>
+    
+    // 名前部分
+    const nameEl = document.createElement('div');
+    nameEl.className = 'name';
+    nameEl.textContent = `${idx + 1}. ${r.name}`;
+    
+    // 説明部分（改行を保持するためにpre-wrapを使用）
+    const textEl = document.createElement('div');
+    textEl.className = 'text';
+    textEl.style.cssText = `
+      font-size: 12px;
+      line-height: 1.5;
+      color: #222;
+      white-space: pre-wrap;
+      margin-top: 4px;
     `;
-
-    row.appendChild(card);
+    textEl.textContent = r.text;
+    
+    desc.appendChild(nameEl);
+    desc.appendChild(textEl);
+    
+    row.appendChild(cardContainer);
     row.appendChild(desc);
     helpBody.appendChild(row);
+    
+    // 特別な例がある場合（ハイカードの場合）
+    if (r.specialExample) {
+      const specialRow = document.createElement('div');
+      specialRow.className = 'role-row';
+      specialRow.style.cssText = `
+        margin-top: 20px;
+        padding-top: 15px;
+        border-top: 2px dashed #ccc;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        width: 100%;
+      `;
+      
+      // タイトル
+      const titleEl = document.createElement('div');
+      titleEl.className = 'name';
+      titleEl.style.cssText = `
+        font-size: 14px;
+        font-weight: bold;
+        color: #333;
+        margin-bottom: 10px;
+        text-align: center;
+        width: 100%;
+      `;
+      titleEl.textContent = r.specialExample.title;
+      
+      // 特別な例の説明
+      const specialDesc = document.createElement('div');
+      specialDesc.className = 'text';
+      specialDesc.style.cssText = `
+        font-size: 12px;
+        line-height: 1.4;
+        color: #222;
+        margin-bottom: 15px;
+        text-align: center;
+        max-width: 400px;
+      `;
+      specialDesc.textContent = r.specialExample.description;
+      
+      // 広い枠（カード配置用）- 小さく修正
+      const specialCardContainer = document.createElement('div');
+      specialCardContainer.style.cssText = `
+        width: 360px;
+        height: 220px;
+        border-radius: 10px;
+        border: 2px solid #aaa;
+        background: #f0f0f0;
+        position: relative;
+        margin-bottom: 10px;
+      `;
+      
+      // 中央の5枚（場のカード）- 小さく修正
+      const centerCards = r.specialExample.centerCards || [];
+      const centerHighlights = r.specialExample.highlightCenter || [];
+      const showCenterPair = r.specialExample.showCenterPair || [];
+      
+      centerCards.forEach((cardCode, cardIndex) => {
+        const cardEl = createCardElement(cardCode);
+        const isHighlighted = centerHighlights.includes(cardIndex);
+        const isPair = showCenterPair[0] === cardIndex;
+        
+        cardEl.style.cssText = `
+          position: absolute;
+          width: 52px !important;
+          height: 78px !important;
+          left: ${60 + cardIndex * 52}px;
+          top: 60px;
+          z-index: ${centerCards.length - cardIndex + 10};
+          transform: rotate(${cardIndex === 2 ? '0' : cardIndex < 2 ? '-3' : '3'}deg);
+          box-shadow: 0 3px 8px rgba(0,0,0,.25);
+          opacity: ${isHighlighted ? '1' : '0.7'};
+          filter: ${isHighlighted ? 'none' : 'brightness(0.8) saturate(0.7)'};
+        `;
+        
+        // ペアになるカードは枠で強調
+        if (isPair) {
+          cardEl.style.boxShadow = '0 0 0 2px #ff9900, 0 3px 8px rgba(0,0,0,.25)';
+        }
+        
+        // 角の文字サイズ調整
+        const corners = cardEl.querySelectorAll('.corner');
+        corners.forEach(corner => {
+          corner.querySelectorAll('.rank, .suit').forEach(el => {
+            el.style.fontSize = '8px';
+          });
+        });
+        
+        // 絵札/数字の調整
+        const faceHolder = cardEl.querySelector('.face-holder');
+        if (faceHolder) faceHolder.style.fontSize = '18px';
+        const faceSuit = cardEl.querySelector('.face-suit');
+        if (faceSuit) faceSuit.style.fontSize = '14px';
+        const pips = cardEl.querySelectorAll('.pip');
+        pips.forEach(pip => {
+          pip.style.fontSize = '10px';
+        });
+        const aPip = cardEl.querySelector('[data-rank="A"] .pip');
+        if (aPip) aPip.style.fontSize = '20px';
+        
+        specialCardContainer.appendChild(cardEl);
+      });
+      
+      // 左下の2枚（Aさんの手札）- 小さく修正
+      const leftCards = r.specialExample.leftCards || [];
+      const leftHighlights = r.specialExample.highlightLeft || [];
+      leftCards.forEach((cardCode, cardIndex) => {
+        const cardEl = createCardElement(cardCode);
+        const isHighlighted = leftHighlights.includes(cardIndex);
+        const isPair = showCenterPair[1] === cardIndex;
+        
+        cardEl.style.cssText = `
+          position: absolute;
+          width: 44px !important;
+          height: 66px !important;
+          left: ${25 + cardIndex * 24}px;
+          top: 130px;
+          z-index: ${leftCards.length - cardIndex};
+          transform: rotate(${cardIndex === 0 ? '-12' : '-8'}deg);
+          box-shadow: 0 2px 6px rgba(0,0,0,.2);
+          opacity: ${isHighlighted ? '1' : '0.5'};
+          filter: ${isHighlighted ? 'none' : 'brightness(0.7) saturate(0.6)'};
+        `;
+        
+        // ペアになるカードは枠で強調
+        if (isPair) {
+          cardEl.style.boxShadow = '0 0 0 2px #ff9900, 0 2px 6px rgba(0,0,0,.2)';
+        }
+        
+        // 角の文字サイズ調整
+        const corners = cardEl.querySelectorAll('.corner');
+        corners.forEach(corner => {
+          corner.querySelectorAll('.rank, .suit').forEach(el => {
+            el.style.fontSize = '7px';
+          });
+        });
+        
+        specialCardContainer.appendChild(cardEl);
+      });
+      
+      // 右下の2枚（Bさんの手札）- 小さく修正
+      const rightCards = r.specialExample.rightCards || [];
+      const rightHighlights = r.specialExample.highlightRight || [];
+      rightCards.forEach((cardCode, cardIndex) => {
+        const cardEl = createCardElement(cardCode);
+        const isHighlighted = rightHighlights.includes(cardIndex);
+        const isPair = showCenterPair[1] === cardIndex;
+        
+        cardEl.style.cssText = `
+          position: absolute;
+          width: 44px !important;
+          height: 66px !important;
+          left: ${270 + cardIndex * 24}px;
+          top: 130px;
+          z-index: ${rightCards.length - cardIndex};
+          transform: rotate(${cardIndex === 0 ? '8' : '12'}deg);
+          box-shadow: 0 2px 6px rgba(0,0,0,.2);
+          opacity: ${isHighlighted ? '1' : '0.5'};
+          filter: ${isHighlighted ? 'none' : 'brightness(0.7) saturate(0.6)'};
+        `;
+        
+        // ペアになるカードは枠で強調
+        if (isPair) {
+          cardEl.style.boxShadow = '0 0 0 2px #ff9900, 0 2px 6px rgba(0,0,0,.2)';
+        }
+        
+        // 角の文字サイズ調整
+        const corners = cardEl.querySelectorAll('.corner');
+        corners.forEach(corner => {
+          corner.querySelectorAll('.rank, .suit').forEach(el => {
+            el.style.fontSize = '7px';
+          });
+        });
+        
+        specialCardContainer.appendChild(cardEl);
+      });
+      
+      // ペアを示す線（場の5と手札の5を結ぶ）
+      if (showCenterPair.length >= 2) {
+        // Aさんのペア線
+        const lineA = document.createElement('div');
+        lineA.style.cssText = `
+          position: absolute;
+          left: 112px;
+          top: 110px;
+          width: 50px;
+          height: 1.5px;
+          background: linear-gradient(90deg, rgba(255,153,0,0.7), rgba(255,153,0,0.3));
+          transform: rotate(-25deg);
+          z-index: 5;
+        `;
+        specialCardContainer.appendChild(lineA);
+        
+        // Bさんのペア線
+        const lineB = document.createElement('div');
+        lineB.style.cssText = `
+          position: absolute;
+          left: 200px;
+          top: 110px;
+          width: 50px;
+          height: 1.5px;
+          background: linear-gradient(90deg, rgba(255,153,0,0.7), rgba(255,153,0,0.3));
+          transform: rotate(25deg);
+          z-index: 5;
+        `;
+        specialCardContainer.appendChild(lineB);
+      }
+      
+      // ラベル追加
+      const labelStyle = `
+        position: absolute;
+        font-size: 10px;
+        font-weight: bold;
+        color: #555;
+        background: rgba(255,255,255,0.8);
+        padding: 2px 6px;
+        border-radius: 3px;
+        z-index: 20;
+      `;
+      
+      const centerLabel = document.createElement('div');
+      centerLabel.textContent = '場のカード';
+      centerLabel.style.cssText = labelStyle + 'left: 140px; top: 25px;';
+      specialCardContainer.appendChild(centerLabel);
+      
+      const leftLabel = document.createElement('div');
+      leftLabel.textContent = 'Aさん';
+      leftLabel.style.cssText = labelStyle + 'left: 30px; top: 205px;';
+      specialCardContainer.appendChild(leftLabel);
+      
+      const rightLabel = document.createElement('div');
+      rightLabel.textContent = 'Bさん';
+      rightLabel.style.cssText = labelStyle + 'left: 285px; top: 205px;';
+      specialCardContainer.appendChild(rightLabel);
+      
+      specialRow.appendChild(titleEl);
+      specialRow.appendChild(specialDesc);
+      specialRow.appendChild(specialCardContainer);
+      helpBody.appendChild(specialRow);
+    }
   });
 }
 function openHelp(){
@@ -1548,7 +1954,7 @@ function getOtherPidUnderPoint(x,y){
     if (!oa) continue;
 
     // 囲み領域は player-wrap の矩形を使う（タグ＋チップ等を含むが、囲みとして安定）
-    const r = w.getBoundingClientRect();
+const r = oa.getBoundingClientRect();   
     if (pointInRect(x,y,r)) return pid;
   }
   return null;
@@ -2032,6 +2438,50 @@ function getSpecial6Selection(pid){
   return state.special6?.selections?.[pid] || null;
 }
 
+// ★追加：EXCHANGE開始の瞬間に、選んだカードを「見た目だけ」隠す
+function markMySpecial6PickedCardHidden(ev){
+  if (!myHandEl) return;
+
+  const pid = state.userId;
+  const sel = ev?.selections?.[pid] || null;
+  const given = (ev?.givenCards?.[pid] || '').trim();
+
+  // 1) index優先（SELECTで選んだ位置が取れるならそれを使う）
+  if (sel && Number.isInteger(sel.index)){
+    const wrap = myHandEl.querySelector(`.my-card[data-index="${sel.index}"]`);
+    if (wrap){
+      // もしcodeも一致確認したい場合（安全側）
+      const codeNow = (wrap.querySelector('.pcard')?.dataset?.code || '').trim();
+      if (!sel.code || sel.code === codeNow){
+        wrap.classList.add('special6-hide-now');
+        return;
+      }
+    }
+  }
+
+  // 2) codeで探す（given優先 → なければsel.code）
+  const targetCode = (given || (sel?.code || '')).trim();
+  if (targetCode){
+    // codeは通常 "A♠" 的な記号ではなく内部コードなのでほぼ安全（念のため最低限エスケープ）
+    const safe = targetCode.replace(/["\\]/g, '\\$&');
+    const cardEl = myHandEl.querySelector(`.pcard[data-code="${safe}"]`);
+    const wrap = cardEl?.closest('.my-card');
+    if (wrap){
+      wrap.classList.add('special6-hide-now');
+      return;
+    }
+  }
+}
+
+// ★追加：一時的に付けた“消す”クラスを掃除
+function clearSpecial6HideNow(){
+  if (!myHandEl) return;
+  myHandEl.querySelectorAll('.special6-hide-now').forEach(el => {
+    el.classList.remove('special6-hide-now');
+  });
+}
+
+
 async function selectSpecial6Card(index, code){
   if (!state.roomCode) return;
   const ev = state.special6;
@@ -2130,20 +2580,25 @@ async function runSpecial6ExchangeAnimation(ev){
   const centerX = handRect ? (handRect.left + handRect.width / 2) : (window.innerWidth / 2);
   const centerY = handRect ? (handRect.top + handRect.height / 2) : (window.innerHeight / 2);
 
+  // アニメーション時間を調整（1500ms → 1200ms）
+  const animationDuration = 1200;
+  
   if (given){
     const outX = -80;
-    await animateOneFly(centerX, centerY, outX, centerY, -6, 800);  }
+    await animateOneFly(centerX, centerY, outX, centerY, -6, animationDuration);
+  }
   if (received){
     const inX = window.innerWidth + 80;
-    await animateOneFly(inX, centerY, centerX, centerY, 6, 800);  }
+    await animateOneFly(inX, centerY, centerX, centerY, 6, animationDuration);
+  }
 }
-
 function subscribeSpecial6(){
   const s6Ref = ref(db, `rooms/${state.roomCode}/special6`);
   onValue(s6Ref, async (snap) => {
     const ev = snap.val();
     if (!ev || !ev.id || !ev.stage) {
       state.special6 = null;
+      state._special6HoldHandSnap = null; // クリア
       renderHands();
       return;
     }
@@ -2158,26 +2613,51 @@ function subscribeSpecial6(){
       receivedCards: ev.receivedCards || {}
     };
 
-    if (ev.stage === 'SELECT'){
-      await finalizeSpecial6IfReady(ev);
-    }
-
     const key = `${ev.id}:${ev.stage}`;
     if (state._special6SeenStage !== key){
       state._special6SeenStage = key;
+
       if (ev.stage === 'EXCHANGE'){
+        // ★修正：現在の手札をスナップショットとして保存
+        const myHand = state.hands[state.userId];
+        state._special6HoldHandSnap = myHand ? [...(myHand.cards || [])] : [];
+
+        // ★追加：アニメ開始と同時に「選んだカードが消える」を揃える
+        myHandEl?.classList.add('special6-exchanging');
+        markMySpecial6PickedCardHidden(ev);
+
+        // 1フレーム描画を挟む
+        await sleep(16);
+
+        // アニメーション実行
         await runSpecial6ExchangeAnimation(ev);
+
+        // ★修正：アニメーション終了後、スナップショットをクリアして実際の手札を表示
+        setTimeout(() => {
+          state._special6HoldHandSnap = null;
+          myHandEl?.classList.remove('special6-exchanging');
+          clearSpecial6HideNow();
+          renderHands(); // 実際の手札を再描画
+        }, 100); // 少し遅延させて確実にアニメーション終了後になるように
       }
+    }
+
+    if (ev.stage === 'SELECT'){
+      finalizeSpecial6IfReady(ev).catch(()=>{});
+    }
+
+    // ★修正：EXCHANGEステージ中は手札を再描画しない
+    if (ev.stage !== 'EXCHANGE') {
+      renderHands();
     }
 
     if (ev.stage === 'DONE'){
       state.special6 = null;
+      state._special6HoldHandSnap = null;
+      renderHands();
     }
-
-    renderHands();
   });
 }
-
 async function startSpecial6(){
   if (!state.roomCode) return;
   try{
@@ -4856,8 +5336,15 @@ function renderMyHand(){
   myHandEl.innerHTML = '';
 
   const myId = state.userId;
-  const handData = state.hands[myId];
-  const finalCards = (handData && Array.isArray(handData.cards)) ? handData.cards : [];
+  
+  // EXCHANGEステージ中でホールドスナップショットがあればそれを使う
+  let finalCards = [];
+  if (state.special6?.stage === 'EXCHANGE' && state._special6HoldHandSnap) {
+    finalCards = state._special6HoldHandSnap;
+  } else {
+    const handData = state.hands[myId];
+    finalCards = (handData && Array.isArray(handData.cards)) ? handData.cards : [];
+  }
 
   const s6 = state.special6;
   const selection = getSpecial6Selection(myId);
@@ -4865,10 +5352,12 @@ function renderMyHand(){
   const isSpecial6Active = !!(s6 && s6.active && s6.stage === 'SELECT');
   myHandEl.classList.toggle('special6-pulse', isSpecial6Active && !selection);
 
+  // EXCHANGEステージ中はselectionを無視する（スナップショットには含まれていない）
+  const shouldShowSelection = !(state.special6?.stage === 'EXCHANGE');
   const shownCount = getShownCount(myId);
 
   for (let i=0; i<shownCount; i++){
-    if (selection && i === selectedIndex) continue;
+    if (shouldShowSelection && selection && i === selectedIndex) continue;
     const wrap = document.createElement('div');
     wrap.className = 'my-card';
     wrap.dataset.index = String(i);
@@ -4879,7 +5368,7 @@ function renderMyHand(){
     myHandEl.appendChild(wrap);
   }
 
-  if (selection && selection.code){
+  if (shouldShowSelection && selection && selection.code){
     const picked = document.createElement('div');
     picked.className = 'my-card special6-picked';
     const pickedEl = createCardElement(selection.code);
@@ -4887,6 +5376,7 @@ function renderMyHand(){
     myHandEl.prepend(picked);
   }
 }
+
 function renderHands(){
   renderMyHand();
   if (latestPlayers.length) renderPlayerCircle(latestPlayers);
