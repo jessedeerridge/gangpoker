@@ -1,5 +1,6 @@
 
-<!DOCTYPE html>    
+
+<!DOCTYPE html>   
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
@@ -322,10 +323,20 @@
     animation: handPulse .85s cubic-bezier(.22,.84,.44,1) infinite;
     transform-origin:center;
   }
+  .my-hand.special6-pulse .pcard,
+  .my-hand.special6-pulse .backcard{
+    animation: special6Pulse .8s ease-in-out infinite;
+    transform-origin:center;
+  }
   @keyframes handPulse{
     0%   { transform:translateY(0)   scale(1); }
     50%  { transform:translateY(-2px) scale(1.06); }
     100% { transform:translateY(0)   scale(1); }
+  }
+  @keyframes special6Pulse{
+    0%{ transform:scale(1); }
+    50%{ transform:scale(1.08); }
+    100%{ transform:scale(1); }
   }
   .my-hand.special-dragging .pcard,
   .my-hand.special-dragging .backcard{
@@ -1056,6 +1067,29 @@ z-index: 10;
   pointer-events:none;
 }
 
+.player-wrap.fan-hand-hidden .player-tag .mini-hand,
+.player-wrap.fan-hand-hidden .player-tag .reveal-hand{
+  opacity:0;
+  visibility:hidden;
+}
+
+.player-wrap.special6-pulse .mini-card{
+  animation: special6Pulse .8s ease-in-out infinite;
+}
+.player-tag .special6-picked-mini{
+  position:absolute;
+  left:100%;
+  top:100%;
+  transform:translate(6px, 3px);
+}
+.my-hand .special6-picked{
+  margin-right:14px;
+}
+.my-hand .special6-picked .pcard,
+.my-hand .special6-picked .backcard{
+  border:2px solid #f97316;
+  box-shadow:0 6px 16px rgba(249,115,22,.35);}
+
 /* ★追加：束の箱サイズをカードサイズに合わせて持たせる */
 .s9-shuffle-stack{
   position:fixed;
@@ -1298,7 +1332,15 @@ const state = {
   _special9SubInited: false,
   _special9SeenId: null,
   _special9SeenStage: null,
-  _special9Running: false
+  _special9Running: false,
+
+  /* =========================
+     ★スペシャル6用（全員1枚選択→右隣へ渡す）
+     ========================= */
+  special6: null,
+  _special6SubInited: false,
+  _special6SeenStage: null,
+  _special6Finalizing: false
 };
 
 
@@ -1459,12 +1501,15 @@ document.addEventListener('dblclick', async (e) => {
     startSpecial1();
   } else if (v === '5'){
     await startSpecial5();
+  } else if (v === '6'){
+    await startSpecial6();
   } else if (v === '7'){
     await startSpecial7(card); // ★追加：スペシャル7
   } else if (v === '9'){
     await startSpecial9();
   }
 }, { capture:true });
+
 
 
 
@@ -1639,6 +1684,21 @@ function s9SetMyHandHidden(on){
   myHandEl.classList.toggle('s9-hand-hidden', !!on);
 }
 
+function setFanHandHiddenForPid(pid, on){
+  if (!pid) return;
+  const wrap = document.querySelector(`.player-wrap[data-pid="${pid}"]`);
+  if (!wrap) return;
+  wrap.classList.toggle('fan-hand-hidden', !!on);
+}
+
+function setFanHandHiddenForAll(on){
+  const wraps = document.querySelectorAll('.player-wrap');
+  wraps.forEach(wrap => {
+    wrap.classList.toggle('fan-hand-hidden', !!on);
+  });
+}
+
+
 
 function s9MakeFlyCard(x, y, rotDeg = 0){
   // ★CSSの .s9-fly（52x78）に合わせる
@@ -1693,6 +1753,7 @@ async function runSpecial9Collect(ev){
 
   // ★追加：回収〜配布終了まで自分の手札を隠す（新しい手札が途中で見えないように）
   s9SetMyHandHidden(true);
+  setFanHandHiddenForAll(true);
 
   const center = getCenterPoint();
   const counts = ev.countsByPid || {};
@@ -1756,6 +1817,7 @@ async function runSpecial9Deal(ev){
 
   // ★追加：DEAL中も手札を隠しておく（DB更新で新手札が先に見えるのを防ぐ）
   s9SetMyHandHidden(true);
+  setFanHandHiddenForAll(true);
 
   const center = getCenterPoint();
   const newCounts = ev.newCountsByPid || {};
@@ -1791,9 +1853,11 @@ async function runSpecial9Deal(ev){
 
   // ★追加：配布演出が終わったら手札を戻す
   s9SetMyHandHidden(false);
+  setFanHandHiddenForAll(false);
 
   s9HideLayer();
 }
+
 
 /* ---- DB購読：special9 ---- */
 function subscribeSpecial9(){
@@ -1819,22 +1883,26 @@ function subscribeSpecial9(){
 if (ev.stage === 'COLLECT'){
   state._special9Running = true;
   s9SetMyHandHidden(true);     // ★追加
+  setFanHandHiddenForAll(true);
   await runSpecial9Collect(ev);
 
 } else if (ev.stage === 'DEAL'){
   s9SetMyHandHidden(true);     // ★追加（DEAL単独で来ても隠す）
+  setFanHandHiddenForAll(true);
   if (!special9Layer?.classList?.contains('hidden') || late < 60000){
     await runSpecial9Deal(ev); // runSpecial9Deal内で最後に戻す
   } else {
     // かなり遅い：演出省略して即終了
     s9HideLayer();
     s9SetMyHandHidden(false);  // ★追加：必ず戻す
+    setFanHandHiddenForAll(false);
   }
   state._special9Running = false;
 
 } else if (ev.stage === 'DONE'){
   s9HideLayer();
   s9SetMyHandHidden(false);    // ★追加：必ず戻す
+  setFanHandHiddenForAll(false);
   state._special9Running = false;
 }
 
@@ -1946,12 +2014,219 @@ async function startSpecial9(){
   }, COLLECT_AND_SHUFFLE_MS);
 }
 
+/* =========================================================
+   ★スペシャル6：全員1枚選択→右隣へ渡す
+   - DB: rooms/{room}/special6
+   - stage:
+      SELECT   : 全員選択中（再選択OK）
+      EXCHANGE : 交換反映＆アニメ
+      DONE     : 終了
+   ========================================================= */
+function getActivePlayerIdsForS6(){
+  const a = (latestPlayers || []).map(p => p?.id).filter(Boolean);
+  if (a.length) return Array.from(new Set(a));
+  return getActivePlayerIdsForS9();
+}
+
+function getSpecial6Selection(pid){
+  return state.special6?.selections?.[pid] || null;
+}
+
+async function selectSpecial6Card(index, code){
+  if (!state.roomCode) return;
+  const ev = state.special6;
+  if (!ev || ev.stage !== 'SELECT') return;
+  if (!Number.isInteger(index) || index < 0) return;
+  if (!code) return;
+  await set(ref(db, `rooms/${state.roomCode}/special6/selections/${state.userId}`), {
+    index,
+    code,
+    at: Date.now()
+  });
+}
+
+async function finalizeSpecial6IfReady(ev){
+  if (!state.isHost || state._special6Finalizing) return;
+  if (!ev || ev.stage !== 'SELECT') return;
+  const order = Array.isArray(ev.order) ? ev.order : [];
+  if (!order.length) return;
+  const selections = ev.selections || {};
+  const allSelected = order.every(pid => selections[pid] && selections[pid].code !== undefined);
+  if (!allSelected) return;
+
+  state._special6Finalizing = true;
+  try{
+    const hands = await getHandsSnapshot(order);
+    const givenCards = {};
+    const receivedCards = {};
+    const newHandsByPid = {};
+
+    order.forEach(pid => {
+      const hand = Array.isArray(hands[pid]) ? hands[pid].slice() : [];
+      const sel = selections[pid];
+      let chosen = null;
+      if (sel && Number.isInteger(sel.index) && sel.index >= 0 && sel.index < hand.length && hand[sel.index] === sel.code){
+        chosen = hand.splice(sel.index, 1)[0];
+      } else if (sel && sel.code){
+        const idx = hand.indexOf(sel.code);
+        if (idx >= 0){
+          chosen = hand.splice(idx, 1)[0];
+        }
+      }
+      if (!chosen && hand.length){
+        chosen = hand.shift();
+      }
+      givenCards[pid] = chosen || null;
+      newHandsByPid[pid] = hand;
+    });
+
+    order.forEach((pid, i) => {
+      const nextPid = order[(i + 1) % order.length];
+      receivedCards[nextPid] = givenCards[pid] || null;
+    });
+
+    order.forEach(pid => {
+      const incoming = receivedCards[pid];
+      if (incoming) newHandsByPid[pid].push(incoming);
+    });
+
+    const patch = {};
+    order.forEach(pid => {
+      patch[`hands/${pid}/cards`] = newHandsByPid[pid];
+    });
+    patch[`special6`] = {
+      id: ev.id,
+      at: Date.now(),
+      stage: 'EXCHANGE',
+      order,
+      selections,
+      givenCards,
+      receivedCards
+    };
+
+    await update(ref(db, `rooms/${state.roomCode}`), patch);
+
+    setTimeout(async () => {
+      try{
+        await set(ref(db, `rooms/${state.roomCode}/special6`), {
+          id: ev.id,
+          at: Date.now(),
+          stage: 'DONE'
+        });
+      }catch(e){}
+    }, 1400);
+  } finally {
+    state._special6Finalizing = false;
+  }
+}
+
+async function runSpecial6ExchangeAnimation(ev){
+  const pid = state.userId;
+  const given = ev?.givenCards?.[pid];
+  const received = ev?.receivedCards?.[pid];
+  if (!given && !received) return;
+
+  const handRect = myHandEl?.getBoundingClientRect?.();
+  const centerX = handRect ? (handRect.left + handRect.width / 2) : (window.innerWidth / 2);
+  const centerY = handRect ? (handRect.top + handRect.height / 2) : (window.innerHeight / 2);
+
+  if (given){
+    const outX = -80;
+    await animateOneFly(centerX, centerY, outX, centerY, -6, 800);  }
+  if (received){
+    const inX = window.innerWidth + 80;
+    await animateOneFly(inX, centerY, centerX, centerY, 6, 800);  }
+}
+
+function subscribeSpecial6(){
+  const s6Ref = ref(db, `rooms/${state.roomCode}/special6`);
+  onValue(s6Ref, async (snap) => {
+    const ev = snap.val();
+    if (!ev || !ev.id || !ev.stage) {
+      state.special6 = null;
+      renderHands();
+      return;
+    }
+
+    state.special6 = {
+      active: ev.stage !== 'DONE',
+      id: ev.id,
+      stage: ev.stage,
+      order: ev.order || [],
+      selections: ev.selections || {},
+      givenCards: ev.givenCards || {},
+      receivedCards: ev.receivedCards || {}
+    };
+
+    if (ev.stage === 'SELECT'){
+      await finalizeSpecial6IfReady(ev);
+    }
+
+    const key = `${ev.id}:${ev.stage}`;
+    if (state._special6SeenStage !== key){
+      state._special6SeenStage = key;
+      if (ev.stage === 'EXCHANGE'){
+        await runSpecial6ExchangeAnimation(ev);
+      }
+    }
+
+    if (ev.stage === 'DONE'){
+      state.special6 = null;
+    }
+
+    renderHands();
+  });
+}
+
+async function startSpecial6(){
+  if (!state.roomCode) return;
+  try{
+    const curSnap = await get(ref(db, `rooms/${state.roomCode}/special6`));
+    const cur = curSnap.val();
+    if (cur && cur.stage && cur.stage !== 'DONE') return;
+  }catch(e){}
+
+  const order = getActivePlayerIdsForS6();
+  if (!order.length) return;
+
+  const id = `${Date.now()}_${Math.random().toString(16).slice(2)}`;
+  await set(ref(db, `rooms/${state.roomCode}/special6`), {
+    id,
+    at: Date.now(),
+    stage: 'SELECT',
+    order,
+    selections: {}
+  });
+}
+
 /* ---- トリガー：自分が7をダブルクリック ----
    仕様：
    - ダブルクリックした本人の手札に「スート無しJ(11)」を追加
    - クリック用のこのカード（ex-float-card）は消す
 */
 const SPECIAL7_CODE = 'J_'; // ★スート無しJ(11)を表す内部コード（スートは "_"）
+
+// ★追加：カードコードを「役計算/描画」共通で解釈する
+function decodeCardCode(code){
+  const s = String(code || '').trim();
+  if (!s) return { raw:s, rankStr:'', rank:0, suit:null, isSuitless:false };
+
+  const last = s.slice(-1);
+  const isSuitless = (last === '_');            // ← スート無しは "_" 終端
+  const suit = isSuitless ? null : last;        // ← スート無しは null
+  const rankStr = s.slice(0, -1);               // ← 末尾1文字はスート(または"_")なので除去
+
+  // ランク数値化（J=11）
+  let rank = 0;
+  if (rankStr === 'A') rank = 14;
+  else if (rankStr === 'K') rank = 13;
+  else if (rankStr === 'Q') rank = 12;
+  else if (rankStr === 'J') rank = 11;
+  else rank = Number(rankStr);
+
+  return { raw:s, rankStr, rank, suit, isSuitless };
+}
+
 
 async function startSpecial7(cardEl){
   if (!state.roomCode) return;
@@ -2322,8 +2597,24 @@ async function maybeStartRevealPhaseIfReady(){
   }
 }
 
-myHandEl.addEventListener('click', () => {
+myHandEl.addEventListener('click', (e) => {
   if (state.special?.active) return;   // ：スペシャル中はここを動かさない
+
+  if (state.special6?.active && state.special6.stage === 'SELECT'){
+    const cardEl = e.target.closest('.pcard');
+    if (!cardEl) return;
+    const wrap = cardEl.closest('.my-card');
+    const idx = Number(wrap?.dataset?.index);
+    const code = (cardEl.dataset.code || '').trim();
+    if (Number.isFinite(idx) && code){
+      selectSpecial6Card(idx, code);
+      e.preventDefault();
+      e.stopPropagation();
+      return;
+    }
+  }
+
+  if (state.special6?.active) return;
   if (isMyRevealTurn()) revealMyHand();
 });
 
@@ -2474,7 +2765,12 @@ function updateHostUI(){
     subscribeSpecial9();               // ★追加
     state._special9SubInited = true;   // ★追加
   }
+  if (state.roomCode && !state._special6SubInited){
+    subscribeSpecial6();
+    state._special6SubInited = true;
+  }
 }
+
 
 
 
@@ -3491,6 +3787,9 @@ function shuffleInPlace(arr){
 }
 function parseCard(code){
   if (!code || typeof code !== 'string') return null;
+  if (code === 'J_'){
+    return { suit: '', rank: 'J', isRed: false, isSuitless: true };
+  }
   const suit = code.slice(0,1);
   const rank = code.slice(1);
   const isRed = (suit === '♥' || suit === '♦');
@@ -4069,7 +4368,7 @@ async function waitForTags(order){
   }
   return false;
 }
-async function animateOneFly(startX, startY, endX, endY, extraRot=0){
+async function animateOneFly(startX, startY, endX, endY, extraRot=0, duration=380){
   const el = document.createElement('div');
   el.className = 'fly-card';
   el.style.left = '0px';
@@ -4087,7 +4386,7 @@ async function animateOneFly(startX, startY, endX, endY, extraRot=0){
     { transform:`translate(${mx}px, ${my}px) rotate(${2+extraRot}deg) scale(1.02)` },
     { transform:`translate(${ex}px, ${ey}px) rotate(${0+extraRot}deg) scale(1)` },
   ], {
-    duration: 380,
+    duration,
     easing: 'cubic-bezier(.22,.84,.44,1)',
     fill: 'forwards'
   });
@@ -4156,15 +4455,26 @@ function getPlayerPoint(pid){
 }
 
 
-function board4thIsFaceUpJQK(g){
+function boardFirst3HasFaceUpJQK(g){
   const board = Array.isArray(g?.boardCodes) ? g.boardCodes : [];
   const faceUp = Number(g?.boardFaceUpCount || 0);
-  if (board.length < 4) return false;
-  if (faceUp < 4) return false; // 4枚目が表向きである必要
-  const c = parseCard(board[3]);
-  if (!c) return false;
-  return (c.rank === 'J' || c.rank === 'Q' || c.rank === 'K');
+  if (!board.length) return false;
+  const maxIndex = Math.min(3, board.length, faceUp);
+  for (let i = 0; i < maxIndex; i++){
+    const c = parseCard(board[i]);
+    if (!c) continue;
+    if (c.rank === 'J' || c.rank === 'Q' || c.rank === 'K') return true;
+  }
+  return false;
 }
+
+function getRoundMaxWhiteChipOwner(owners, maxPlayers){
+  const count = Math.max(0, Number(maxPlayers || 0));
+  if (!owners || !count) return null;
+  const chipId = `白_${count}`;
+  return owners[chipId] || null;
+}
+
 
 async function triggerC3Effect(){
   if (!state.roomCode) return;
@@ -4179,10 +4489,9 @@ async function triggerC3Effect(){
 
   const g = gSnap.val() || {};
   if (!g.started) return;
-  if (!board4thIsFaceUpJQK(g)) return;
-
+  if (!boardFirst3HasFaceUpJQK(g)) return;
   const fx = g.fx || null;
-  if (fx && fx.type === 'C3_DRAW2' && typeof fx.at === 'number' && (Date.now() - fx.at) < 1500){
+  if (fx && fx.type === 'C3_REDRAW' && typeof fx.at === 'number' && (Date.now() - fx.at) < 1500){
     return;
   }
 
@@ -4195,15 +4504,58 @@ async function triggerC3Effect(){
   const discardCount = prevHand.length;
 
   const deck = Array.isArray(g.deck) ? [...g.deck] : [];
-  if (deck.length < 2) return;
+  if (deck.length < discardCount) return;
 
-  const newCards = deck.splice(0, 2);
+  const newCards = deck.splice(0, discardCount);
+  const fxId = Date.now();
+  const patch = {};
+  patch[`hands/${targetPid}/cards`] = newCards;
+  patch[`game/deck`] = deck;
+  patch[`game/fx`] = { id: fxId, at: fxId, type: 'C3_REDRAW', pid: targetPid, discardCount, drawCount: discardCount };
+  await update(ref(db, `rooms/${state.roomCode}`), patch);
+}
+
+
+async function triggerC7Effect(){
+  if (!state.roomCode) return;
+
+  const gameRef = ref(db, `rooms/${state.roomCode}/game`);
+  const [gSnap, ownersSnap, handsSnap] = await Promise.all([
+    get(gameRef),
+    get(ref(db, `rooms/${state.roomCode}/chipOwners`)),
+    get(ref(db, `rooms/${state.roomCode}/hands`))
+  ]);
+  const roomSnap = await get(ref(db, `rooms/${state.roomCode}`));
+
+  const g = gSnap.val() || {};
+  if (!g.started) return;
+  if (boardFirst3HasFaceUpJQK(g)) return;
+
+  const fx = g.fx || null;
+  if (fx && fx.type === 'C7_REDRAW' && typeof fx.at === 'number' && (Date.now() - fx.at) < 1500){
+    return;
+  }
+
+  const owners = ownersSnap.val() || {};
+ const room = roomSnap.val() || {};
+  const targetPid = getRoundMaxWhiteChipOwner(owners, room.maxPlayers || state.room?.maxPlayers);
+
+  if (!targetPid) return;
+
+  const hands = handsSnap.val() || {};
+  const prevHand = (hands[targetPid]?.cards && Array.isArray(hands[targetPid].cards)) ? hands[targetPid].cards : [];
+  const discardCount = prevHand.length;
+
+  const deck = Array.isArray(g.deck) ? [...g.deck] : [];
+  if (deck.length < discardCount) return;
+
+  const newCards = deck.splice(0, discardCount);
 
   const fxId = Date.now();
   const patch = {};
   patch[`hands/${targetPid}/cards`] = newCards;
   patch[`game/deck`] = deck;
-  patch[`game/fx`] = { id: fxId, at: fxId, type: 'C3_DRAW2', pid: targetPid, discardCount, drawCount: 2 };
+  patch[`game/fx`] = { id: fxId, at: fxId, type: 'C7_REDRAW', pid: targetPid, discardCount, drawCount: discardCount };
 
   await update(ref(db, `rooms/${state.roomCode}`), patch);
 }
@@ -4230,11 +4582,12 @@ async function maybePlayFxFromGame(){
 
   sessionStorage.setItem(getFxSeenKey(), String(fx.id));
 
-  if (fx.type === 'C3_DRAW2'){
+  if (fx.type === 'C3_REDRAW' || fx.type === 'C7_REDRAW'){
     if (_fxAnimating) return;
     _fxAnimating = true;
     try{
       const pid = fx.pid;
+      setFanHandHiddenForPid(pid, true);
       const discardCount = Math.max(0, Math.floor(Number(fx.discardCount || 0)));
       const drawCount = Math.max(0, Math.floor(Number(fx.drawCount || 2)));
 
@@ -4253,7 +4606,7 @@ async function maybePlayFxFromGame(){
 
       await sleep(120);
 
-      // 2枚ドロー（山札→対象プレイヤー）
+      // 引きなおしドロー（山札→対象プレイヤー）
       const deckEl = document.getElementById('deckStack');
       const d = deckEl ? deckEl.getBoundingClientRect() : null;
       const startX = d ? (d.left + d.width/2) : (window.innerWidth/2);
@@ -4269,11 +4622,11 @@ async function maybePlayFxFromGame(){
       if (pid === state.userId && !wasHidden) myHandEl.style.visibility = '';
       renderHands();
     } finally {
+      setFanHandHiddenForPid(fx.pid, false);
       _fxAnimating = false;
     }
   }
 }
-
 
 
 async function maybePlayDealFromGame(){
@@ -4483,6 +4836,16 @@ document.addEventListener('dblclick', async (e) => {
     await triggerC3Effect();
     return;
   }
+
+
+
+  // C7：場1-3枚目に絵札が無い時、最高白チップ所持者が引きなおす
+  if (code === 'C7'){
+    e.preventDefault();
+    e.stopPropagation();
+    await triggerC7Effect();
+    return;
+  }
 }, true);
 
 
@@ -4496,16 +4859,32 @@ function renderMyHand(){
   const handData = state.hands[myId];
   const finalCards = (handData && Array.isArray(handData.cards)) ? handData.cards : [];
 
+  const s6 = state.special6;
+  const selection = getSpecial6Selection(myId);
+  const selectedIndex = selection ? Number(selection.index) : -1;
+  const isSpecial6Active = !!(s6 && s6.active && s6.stage === 'SELECT');
+  myHandEl.classList.toggle('special6-pulse', isSpecial6Active && !selection);
+
   const shownCount = getShownCount(myId);
 
   for (let i=0; i<shownCount; i++){
+    if (selection && i === selectedIndex) continue;
     const wrap = document.createElement('div');
     wrap.className = 'my-card';
+    wrap.dataset.index = String(i);
 
     const code = finalCards[i];
     const cardEl = code ? createCardElement(code) : createBackCardElement();
     wrap.appendChild(cardEl);
     myHandEl.appendChild(wrap);
+  }
+
+  if (selection && selection.code){
+    const picked = document.createElement('div');
+    picked.className = 'my-card special6-picked';
+    const pickedEl = createCardElement(selection.code);
+    picked.appendChild(pickedEl);
+    myHandEl.prepend(picked);
   }
 }
 function renderHands(){
@@ -4785,6 +5164,11 @@ function renderPlayerCircle(players){
 
     if (curRevealPid && p.id === curRevealPid) tag.classList.add('turn');
 
+    const s6 = state.special6;
+    const s6Selection = getSpecial6Selection(p.id);
+    const isS6Active = !!(s6 && s6.active && s6.stage === 'SELECT');
+    wrap.classList.toggle('special6-pulse', isS6Active && !s6Selection);
+
     tag.onclick = () => {
       if (p.id === state.userId){
         if (isMyRevealTurn()) revealMyHand();
@@ -4800,6 +5184,7 @@ function renderPlayerCircle(players){
     };
 
     const count = getShownCount(p.id);
+    const fanCount = s6Selection ? Math.max(0, count - 1) : count;
     const isRevealed = !!revealedMap?.[p.id];
 
     /* ★変更：公開済み表示は「自分以外だけ」 */
@@ -4818,24 +5203,31 @@ function renderPlayerCircle(players){
 
       tag.appendChild(rh);
     } else {
-      if (p.id !== state.userId && count > 0){
+      if (p.id !== state.userId && fanCount > 0){
         const miniHand = document.createElement('div');
         miniHand.className = 'mini-hand';
 
         const spread = 70;
-        const base = (count > 1) ? (-spread/2) : 0;
+        const base = (fanCount > 1) ? (-spread/2) : 0;
 
-        for (let idx2=0; idx2<count; idx2++){
+        for (let idx2=0; idx2<fanCount; idx2++){
           const card = document.createElement('div');
           card.className = 'mini-card';
           card.textContent = '';
 
-          const angleDeg = (count > 1) ? base + (spread/(count-1))*idx2 : 0;
+          const angleDeg = (fanCount > 1) ? base + (spread/(fanCount-1))*idx2 : 0;
           card.style.transform = `translate(-50%,0) rotate(${angleDeg}deg)`;
           card.style.zIndex = String(10 + idx2);
           miniHand.appendChild(card);
         }
         tag.appendChild(miniHand);
+
+        if (s6Selection){
+          const picked = document.createElement('div');
+          picked.className = 'mini-card special6-picked-mini';
+          picked.textContent = '';
+          tag.appendChild(picked);
+        }
       }
     }
 
