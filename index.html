@@ -1,4 +1,5 @@
-<!DOCTYPE html>   
+
+<!DOCTYPE html>    
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
@@ -290,6 +291,21 @@
     50%  { transform:translateY(-1px) scale(1.08); }
     100% { transform:translateY(0) scale(1); }
   }
+/* ★追加：12時席だけネームタグが70px下がっているので、囲み枠も同じだけ下げる */
+.player-wrap.top-seat .other-ownarea{
+  transform: translateY(70px);
+}
+
+/* ★追加：12時席は70px下げたままパルスさせる（transformが上書きされないように） */
+.player-circle.special1-active .player-wrap.top-seat .other-ownarea{
+  animation: ownAreaPulseTop .85s cubic-bezier(.22,.84,.44,1) infinite;
+}
+
+@keyframes ownAreaPulseTop{
+  0%   { transform:translateY(70px) scale(1); }
+  50%  { transform:translateY(69px) scale(1.08); } /* -1pxだけ浮かせる */
+  100% { transform:translateY(70px) scale(1); }
+}
 
 
   .owned-chip.draggable{ cursor:grab; }
@@ -988,6 +1004,68 @@ z-index: 10;
   object-position: center;
 }
 
+/* =========================
+   ★スペシャル9：全回収→シャッフル→再配布 演出
+   ========================= */
+/* =========================
+   ★スペシャル9：全回収→シャッフル→再配布 演出
+   ========================= */
+.s9-layer{
+  position:fixed;
+  inset:0;
+  z-index:2147483645;
+  pointer-events:none;
+}
+.s9-layer.hidden{ display:none; }
+
+.s9-fly{
+  position:fixed;
+  width:52px;              /* ★60→52（ちょい小さく） */
+  height:78px;             /* ★90→78（ちょい小さく） */
+  border-radius:8px;
+  border:1px solid rgba(255,255,255,.65);
+  overflow:hidden;
+  box-shadow:0 10px 22px rgba(0,0,0,.22);
+  transform-origin:center;
+  pointer-events:none;
+  /* 既存の裏面（gangura.jpg）をそのまま使う */
+  background: var(--card-back-url) center/cover no-repeat !important;
+}
+.s9-fly::after{
+  content:'';
+  position:absolute; inset:5px;   /* ★6→5（小さくした分だけ少し詰める） */
+  border-radius:6px;
+  border:1px solid rgba(255,255,255,.45);
+  box-shadow:inset 0 0 0 1px rgba(0,0,0,.15);
+}
+
+
+/* 中央でシャッフルっぽく揺らす */
+@keyframes s9ShuffleJitter{
+  0%   { transform:translate(-50%,-50%) rotate(0deg)  scale(1); }
+  15%  { transform:translate(-50%,-50%) rotate(6deg)  scale(1.02); }
+  30%  { transform:translate(-50%,-50%) rotate(-7deg) scale(1.01); }
+  45%  { transform:translate(-50%,-50%) rotate(10deg) scale(1.03); }
+  60%  { transform:translate(-50%,-50%) rotate(-8deg) scale(1.01); }
+  75%  { transform:translate(-50%,-50%) rotate(5deg)  scale(1.02); }
+  100% { transform:translate(-50%,-50%) rotate(0deg)  scale(1); }
+}
+/* ★追加：スペシャル9中は「自分の手札」を隠す（レイアウトは維持） */
+.my-hand.s9-hand-hidden{
+  opacity:0;
+  pointer-events:none;
+}
+
+/* ★追加：束の箱サイズをカードサイズに合わせて持たせる */
+.s9-shuffle-stack{
+  position:fixed;
+  width:52px;   /* .s9-fly と同じ */
+  height:78px;  /* .s9-fly と同じ */
+  transform:translate(-50%,-50%);
+  animation:s9ShuffleJitter .9s cubic-bezier(.22,.84,.44,1) both;
+}
+
+
 </style>
 </head>
 <body>
@@ -1142,7 +1220,7 @@ z-index: 10;
 </div>
 
 
-
+<div id="special9Layer" class="s9-layer hidden"></div>
 <div id="dragLayer"></div>
 
 <script type="module">
@@ -1212,8 +1290,17 @@ const state = {
      ========================= */
   special: { active:false, mode:null, used:false, _overlayTimer:0 },
   _specialSubInited: false,
-  _specialSeen: {}
+  _specialSeen: {},
+
+  /* =========================
+     ★スペシャル9用（全回収→シャッフル→再配布）
+     ========================= */
+  _special9SubInited: false,
+  _special9SeenId: null,
+  _special9SeenStage: null,
+  _special9Running: false
 };
+
 
 const mainEl = document.getElementById('main');
 const joinBox = document.getElementById('joinBox');
@@ -1301,6 +1388,7 @@ const helpBody = document.getElementById('helpBody');
 const chipPool = document.getElementById('chipPool');
 const chipPoolArea = document.getElementById('chipPoolArea');
 const dragLayer = document.getElementById('dragLayer');
+const special9Layer = document.getElementById('special9Layer');
 
 /* ：左上カードDOM */
 const sideCardsEl = document.getElementById('sideCards');
@@ -1371,8 +1459,15 @@ document.addEventListener('dblclick', async (e) => {
     startSpecial1();
   } else if (v === '5'){
     await startSpecial5();
+  } else if (v === '7'){
+    await startSpecial7(card); // ★追加：スペシャル7
+  } else if (v === '9'){
+    await startSpecial9();
   }
 }, { capture:true });
+
+
+
 
 let pendingSeatIndexToSteal = null;
 let pendingSeatPlayerIdToSteal = null;
@@ -1455,6 +1550,429 @@ async function emitSpecialEvent(ev){
     at: Date.now()
   });
 }
+
+/* =========================================================
+   ★スペシャル9：全員の手札を中央へ回収→シャッフル→均等に再配布
+   - DB: rooms/{room}/special9 を監視して全員同時アニメ
+   - stage:
+      COLLECT  : 回収→中央へ集める
+      DEAL     : 再配布（このタイミングで hands をDB更新）
+      DONE     : 終了
+   ========================================================= */
+
+function getActivePlayerIdsForS9(){
+  // 1) latestPlayers があるなら優先
+  const a = (latestPlayers || []).map(p => p?.id).filter(Boolean);
+  if (a.length) return Array.from(new Set(a));
+
+  // 2) fallback: DOMから
+  const wraps = playerCircle?.querySelectorAll?.('.player-wrap') || [];
+  const b = Array.from(wraps).map(w => w?.dataset?.pid).filter(Boolean);
+  return Array.from(new Set(b));
+}
+
+async function getHandsSnapshot(pids){
+  const out = {};
+  await Promise.all(pids.map(async pid => {
+    try{
+      const snap = await get(ref(db, `rooms/${state.roomCode}/hands/${pid}/cards`));
+      const arr = Array.isArray(snap.val()) ? snap.val() : [];
+      out[pid] = arr.slice();
+    }catch(e){
+      out[pid] = [];
+    }
+  }));
+  return out;
+}
+
+function shuffleCopy(arr){
+  const a = arr.slice();
+  for (let i=a.length-1;i>0;i--){
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function getCenterPoint(){
+  // ★回収＆配布の中心は「サークル(playerCircle)の中心」に固定
+  const pr = playerCircle?.getBoundingClientRect?.();
+  if (pr) return { x: pr.left + pr.width/2, y: pr.top + pr.height/2 };
+
+  // fallback（念のため）
+  return { x: window.innerWidth/2, y: window.innerHeight/2 };
+}
+
+function getSourcePointForPid(pid){
+  // 自分は「手札の中心」から
+  if (pid === state.userId){
+    const r = myHandEl?.getBoundingClientRect?.();
+    if (r) return { x: r.left + r.width/2, y: r.top + r.height/2 };
+  }
+  // 他人はネームタグの位置から
+  const w = playerCircle?.querySelector?.(`.player-wrap[data-pid="${pid}"] .player-tag`);
+  const r = w?.getBoundingClientRect?.();
+  if (r) return { x: r.left + r.width/2, y: r.top + r.height/2 };
+
+  // fallback
+  return getCenterPoint();
+}
+
+function getTargetPointForPid(pid){
+  // DEAL時：自分は手札へ、他人はネームタグへ
+  return getSourcePointForPid(pid);
+}
+
+function s9ShowLayer(){
+  if (!special9Layer) return;
+  special9Layer.innerHTML = '';
+  special9Layer.classList.remove('hidden');
+}
+function s9HideLayer(){
+  if (!special9Layer) return;
+  special9Layer.classList.add('hidden');
+  special9Layer.innerHTML = '';
+}
+
+function s9SetMyHandHidden(on){
+  if (!myHandEl) return;
+  myHandEl.classList.toggle('s9-hand-hidden', !!on);
+}
+
+
+function s9MakeFlyCard(x, y, rotDeg = 0){
+  // ★CSSの .s9-fly（52x78）に合わせる
+  const HW = 26; // 52/2
+  const HH = 39; // 78/2
+
+  const el = document.createElement('div');
+  el.className = 's9-fly';
+  el.style.left = `${x - HW}px`;
+  el.style.top  = `${y - HH}px`;
+  el.style.transform = `rotate(${rotDeg}deg)`;
+  return el;
+}
+
+function s9AnimateFly(el, toX, toY, dur = 520, extraRot = 0, scale = 0.96, delay = 0){
+  // ★CSSの .s9-fly（52x78）に合わせる
+  const HW = 26; // 52/2
+  const HH = 39; // 78/2
+
+  return new Promise(res => {
+    requestAnimationFrame(() => {
+      const fromLeft = Number(String(el.style.left).replace('px','')) || 0;
+      const fromTop  = Number(String(el.style.top ).replace('px','')) || 0;
+
+      // 「現在の中心座標」
+      const curX = fromLeft + HW;
+      const curY = fromTop  + HH;
+
+      const dx = toX - curX;
+      const dy = toY - curY;
+
+      el.style.transition =
+        `transform ${dur}ms cubic-bezier(.22,.84,.44,1) ${delay}ms, `+
+        `left ${dur}ms cubic-bezier(.22,.84,.44,1) ${delay}ms, `+
+        `top ${dur}ms cubic-bezier(.22,.84,.44,1) ${delay}ms, `+
+        `opacity ${dur}ms cubic-bezier(.22,.84,.44,1) ${delay}ms`;
+
+      // left/top で動かす（transformと競合しない）
+      el.style.left = `${fromLeft + dx}px`;
+      el.style.top  = `${fromTop  + dy}px`;
+      el.style.transform = `rotate(${extraRot}deg) scale(${scale})`;
+      el.style.opacity = '1';
+
+      setTimeout(() => res(), dur + delay + 20);
+    });
+  });
+}
+
+async function runSpecial9Collect(ev){
+  if (!special9Layer) return;
+  s9ShowLayer();
+
+  // ★追加：回収〜配布終了まで自分の手札を隠す（新しい手札が途中で見えないように）
+  s9SetMyHandHidden(true);
+
+  const center = getCenterPoint();
+  const counts = ev.countsByPid || {};
+  const pids = ev.order || getActivePlayerIdsForS9();
+
+  // 回収：各プレイヤー位置から中央へ
+  const promises = [];
+  for (const pid of pids){
+    const c = Math.max(0, Number(counts[pid] || 0));
+    if (!c) continue;
+
+    const src = getSourcePointForPid(pid);
+    for (let i=0;i<c;i++){
+      const rot = (Math.random()*24 - 12);
+      const el = s9MakeFlyCard(src.x + (Math.random()*10-5), src.y + (Math.random()*10-5), rot);
+      special9Layer.appendChild(el);
+
+      const toX = center.x + (Math.random()*18 - 9);
+      const toY = center.y + (Math.random()*18 - 9);
+      const dur = 420 + Math.floor(Math.random()*220);
+      const delay = Math.floor(Math.random()*120);
+
+      promises.push(s9AnimateFly(el, toX, toY, dur, rot + (Math.random()*30-15), 0.95, delay));
+    }
+  }
+  await Promise.all(promises);
+
+  // 中央シャッフル演出（束を軽く揺らす）
+  const stack = document.createElement('div');
+  stack.className = 's9-shuffle-stack';
+
+  // ★修正：シャッフル束の座標を「サークル中心(px)」に固定
+  stack.style.left = `${center.x}px`;
+  stack.style.top  = `${center.y}px`;
+
+  // 見た目はカード3枚重ね
+  for (let i=0;i<3;i++){
+    const card = document.createElement('div');
+    card.className = 's9-fly';
+    card.style.position = 'absolute';
+    card.style.left = `${(i*2)}px`;
+    card.style.top  = `${(i*2)}px`;
+    card.style.transform = `rotate(${(i-1)*3}deg)`;
+    stack.appendChild(card);
+  }
+  special9Layer.appendChild(stack);
+
+  // 既に集まった飛びカードは消して、束だけ残す
+  const flies = special9Layer.querySelectorAll('.s9-fly');
+  flies.forEach(el => {
+    if (el.parentNode === stack) return;
+    el.remove();
+  });
+
+  await sleep(920);
+}
+
+
+async function runSpecial9Deal(ev){
+  if (!special9Layer) return;
+
+  // ★追加：DEAL中も手札を隠しておく（DB更新で新手札が先に見えるのを防ぐ）
+  s9SetMyHandHidden(true);
+
+  const center = getCenterPoint();
+  const newCounts = ev.newCountsByPid || {};
+  const pids = ev.order || getActivePlayerIdsForS9();
+
+  // 束を消す
+  const stack = special9Layer.querySelector('.s9-shuffle-stack');
+  if (stack) stack.remove();
+
+  // 再配布：中央から各プレイヤーへ
+  const promises = [];
+  for (const pid of pids){
+    const c = Math.max(0, Number(newCounts[pid] || 0));
+    if (!c) continue;
+
+    const dst = getTargetPointForPid(pid);
+    for (let i=0;i<c;i++){
+      const rot = (Math.random()*24 - 12);
+      const el = s9MakeFlyCard(center.x + (Math.random()*16-8), center.y + (Math.random()*18-9), rot);
+      el.style.opacity = '1';
+      special9Layer.appendChild(el);
+
+      const dur = 440 + Math.floor(Math.random()*220);
+      const delay = Math.floor(i * 35);
+      promises.push(
+        s9AnimateFly(el, dst.x + (Math.random()*10-5), dst.y + (Math.random()*10-5), dur, rot + (Math.random()*30-15), 0.98, delay)
+          .then(() => el.remove())
+      );
+    }
+  }
+
+  await Promise.all(promises);
+
+  // ★追加：配布演出が終わったら手札を戻す
+  s9SetMyHandHidden(false);
+
+  s9HideLayer();
+}
+
+/* ---- DB購読：special9 ---- */
+function subscribeSpecial9(){
+  const s9Ref = ref(db, `rooms/${state.roomCode}/special9`);
+  onValue(s9Ref, async (snap) => {
+    const ev = snap.val();
+    if (!ev || !ev.id || !ev.stage) return;
+
+    // 同じid+stageを二重実行しない
+    const key = `${ev.id}:${ev.stage}`;
+    if (state._special9SeenStage === key) return;
+    state._special9SeenStage = key;
+
+    // 既に他stageの途中でも、stageに合わせて動く
+    // ただしアニメ中の多重起動は抑止
+    if (state._special9Running && ev.stage === 'COLLECT') return;
+
+    // 時間がずれて参加した人でも破綻しにくいよう、遅すぎる場合は短縮/スキップ気味に
+    const now = Date.now();
+    const baseAt = Number(ev.at || now);
+    const late = Math.max(0, now - baseAt);
+
+if (ev.stage === 'COLLECT'){
+  state._special9Running = true;
+  s9SetMyHandHidden(true);     // ★追加
+  await runSpecial9Collect(ev);
+
+} else if (ev.stage === 'DEAL'){
+  s9SetMyHandHidden(true);     // ★追加（DEAL単独で来ても隠す）
+  if (!special9Layer?.classList?.contains('hidden') || late < 60000){
+    await runSpecial9Deal(ev); // runSpecial9Deal内で最後に戻す
+  } else {
+    // かなり遅い：演出省略して即終了
+    s9HideLayer();
+    s9SetMyHandHidden(false);  // ★追加：必ず戻す
+  }
+  state._special9Running = false;
+
+} else if (ev.stage === 'DONE'){
+  s9HideLayer();
+  s9SetMyHandHidden(false);    // ★追加：必ず戻す
+  state._special9Running = false;
+}
+
+  });
+}
+
+/* ---- トリガー：自分が9をダブルクリック ---- */
+async function startSpecial9(){
+  if (!state.roomCode) return;
+
+  // 既に進行中なら無視
+  try{
+    const curSnap = await get(ref(db, `rooms/${state.roomCode}/special9`));
+    const cur = curSnap.val();
+    if (cur && cur.stage && cur.stage !== 'DONE') return;
+  }catch(e){}
+
+  const order = getActivePlayerIdsForS9();
+  if (!order.length) return;
+
+  // 現在の手札を読み取る
+  const hands = await getHandsSnapshot(order);
+
+  // プール化
+  const pool = [];
+  const countsByPid = {};
+  for (const pid of order){
+    const arr = Array.isArray(hands[pid]) ? hands[pid] : [];
+    countsByPid[pid] = arr.length;
+    pool.push(...arr);
+  }
+  const total = pool.length;
+  if (!total) return;
+
+  // stage: COLLECT を書く（全員同時に回収アニメ開始）
+  const id = `${Date.now()}_${Math.random().toString(16).slice(2)}`;
+  await set(ref(db, `rooms/${state.roomCode}/special9`), {
+    id,
+    at: Date.now(),
+    stage: 'COLLECT',
+    fromPid: state.userId,
+    fromName: state.userName,
+    order,
+    countsByPid
+  });
+
+  // 少し待って、シャッフル→均等再配布（このタイミングでhandsをDB更新）→全員DEAL演出
+  // 均等： total を人数で割り、余りは先頭から+1（＝できるだけ均等）
+  const COLLECT_AND_SHUFFLE_MS = 1600; // 回収+シャッフル演出の見せ時間
+  const DEAL_ANIM_MS = 1400;
+
+  setTimeout(async () => {
+    try{
+      // 念のため最新のhandsを再取得（途中で変わっても破綻しにくく）
+      const hands2 = await getHandsSnapshot(order);
+      const pool2 = [];
+      for (const pid of order){
+        const arr = Array.isArray(hands2[pid]) ? hands2[pid] : [];
+        pool2.push(...arr);
+      }
+      const shuffled = shuffleCopy(pool2);
+
+      const n = order.length;
+      const base = Math.floor(shuffled.length / n);
+      let rem = shuffled.length % n;
+
+      const newHandsByPid = {};
+      const newCountsByPid = {};
+      let idx = 0;
+      for (const pid of order){
+        const take = base + (rem > 0 ? 1 : 0);
+        if (rem > 0) rem--;
+        const slice = shuffled.slice(idx, idx + take);
+        idx += take;
+        newHandsByPid[pid] = slice;
+        newCountsByPid[pid] = slice.length;
+      }
+
+      // hands更新 + stage: DEAL を同時反映（全員がDEAL演出へ）
+      const patch = {};
+      for (const pid of order){
+        patch[`hands/${pid}/cards`] = newHandsByPid[pid];
+      }
+      patch[`special9`] = {
+        id,
+        at: Date.now(),
+        stage: 'DEAL',
+        fromPid: state.userId,
+        fromName: state.userName,
+        order,
+        countsByPid,
+        newCountsByPid
+      };
+
+      await update(ref(db, `rooms/${state.roomCode}`), patch);
+
+      // 少し待ってDONE
+      setTimeout(async () => {
+        try{
+          await set(ref(db, `rooms/${state.roomCode}/special9`), {
+            id,
+            at: Date.now(),
+            stage: 'DONE'
+          });
+        }catch(e){}
+      }, DEAL_ANIM_MS + 180);
+
+    }catch(e){}
+  }, COLLECT_AND_SHUFFLE_MS);
+}
+
+/* ---- トリガー：自分が7をダブルクリック ----
+   仕様：
+   - ダブルクリックした本人の手札に「スート無しJ(11)」を追加
+   - クリック用のこのカード（ex-float-card）は消す
+*/
+const SPECIAL7_CODE = 'J_'; // ★スート無しJ(11)を表す内部コード（スートは "_"）
+
+async function startSpecial7(cardEl){
+  if (!state.roomCode) return;
+
+  // 1) クリック用カードを消す（まずUIから）
+  try{ cardEl?.remove?.(); }catch(e){}
+
+  // 2) 手札に追加（DB同期）
+  // あなたのコード内の drawOneFromDeckToMe() と同じ「hands/{pid}/cards」へ追記方式で統一する
+  const handRef = ref(db, `rooms/${state.roomCode}/hands/${state.userId}/cards`);
+
+  const snap = await get(handRef);
+  const myCards = Array.isArray(snap.val()) ? snap.val() : [];
+
+  // 重複したら増やさない（好みで外してOK）
+  // if (myCards.includes(SPECIAL7_CODE)) return;
+
+  const newHand = [...myCards, SPECIAL7_CODE];
+  await set(handRef, newHand);
+}
+
 
 function subscribeSpecialEvents(){
   state._specialSubInited = true;
@@ -1952,7 +2470,12 @@ function updateHostUI(){
   if (state.roomCode && !state._specialSubInited){
     subscribeSpecialEvents();
   }
+  if (state.roomCode && !state._special9SubInited){
+    subscribeSpecial9();               // ★追加
+    state._special9SubInited = true;   // ★追加
+  }
 }
+
 
 
 function setOwnCircleVisible(visible){
@@ -2985,9 +3508,9 @@ const PIP_LAYOUT = {
   4: [[0,0],[0,2],[4,0],[4,2]],
   5: [[0,0],[0,2],[2,1],[4,0],[4,2]],
   6: [[0,0],[0,2],[2,0],[2,2],[4,0],[4,2]],
-  7: [[0,0],[0,2],[0,1],[2,0],[2,2],[4,0],[4,2]],
+  7: [[0,0],[0,2],[1,1],[2,0],[2,2],[4,0],[4,2]],
   8: [[0,0],[0,2],[1,1],[2,0],[2,2],[3,1],[4,0],[4,2]],
-  9: [[0,0],[0,2],[1,1],[2,0],[2,2],[2,1],[3,1],[4,0],[4,2]],
+  9: [[0,0],[0,2],[1,0],[1,2],[2,1],[3,0],[3,2],[4,0],[4,2]],
   10:[[0,0],[0,2],[1,1],[1,0],[1,2],[3,0],[3,2],[3,1],[4,0],[4,2]]
 };
 function createCardElement(code){
