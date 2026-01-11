@@ -5,7 +5,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>テンプレ</title>
+<title>ギャングポーカー</title>
 
 <!-- ：ポップなフォント（演出用） -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -519,8 +519,8 @@
     text-shadow:none;
     border:1px solid rgba(255,255,255,.25);
     pointer-events:none;
+    display:none;
   }
-
   .board-row{ display:flex; gap:8px; pointer-events:auto; }
 
   .board-slot{
@@ -918,18 +918,19 @@ z-index: 10;
   width:60px;
   height:90px;
   border-radius:8px;
-  border:2px solid #111;
+  border:1px solid #111;
   background:#fff;
+  background-position:center;
+  background-size:cover;
+  background-repeat:no-repeat;
   box-shadow:0 10px 22px rgba(0,0,0,.20);
   display:flex;
   align-items:center;
   justify-content:center;
-  font-weight:900;
-  font-size:22px;
-  letter-spacing:.02em;
   user-select:none;
   touch-action:none; /* ドラッグ用 */
   cursor:grab;
+  overflow:hidden;
 }
 .ex-float-card:active{ cursor:grabbing; }
 
@@ -941,13 +942,77 @@ z-index: 10;
   border:1px solid rgba(0,0,0,.15);
   pointer-events:none;
 }
-.ex-float-card .ex-label{
-  position:relative;
-  z-index:1;
-}
-.ex-float-card.ex-challenge{ color:#b91c1c; }
-.ex-float-card.ex-specialist{ color:#111; }
+  .ex-float-card.ex-challenge{ color:#b91c1c; }
+  .ex-float-card.ex-specialist{ color:#111; }
 
+.ex-zoom-backdrop{
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,.55);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  z-index:2147483646;
+}
+.ex-zoom-backdrop.hidden{ display:none; }
+.ex-zoom-card{
+  width:180px;
+  height:270px;
+  border-radius:12px;
+  border:1px solid rgba(255,255,255,.6);
+  background:#fff center/cover no-repeat;
+  box-shadow:0 16px 40px rgba(0,0,0,.35);
+}
+.ex-float-card .ex-card-number{
+  position:absolute;
+  top:2px;
+  right:2px;
+  width:10px;
+  height:10px;
+  border-radius:3px;
+  border:1px solid #fff;
+  background:#fff;
+  color:#f97316;
+  font-size:9px;
+  font-weight:900;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  z-index:2;
+}
+
+.ex-float-card .ex-card-info{
+  position:absolute;
+  left:4px;
+  right:4px;
+  bottom:4px;
+  height:30px;
+  background:#fff;
+  border:1px solid #000;
+  border-radius:4px;
+  color:#000;
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  gap:2px;
+  padding:2px 3px;
+  text-align:center;
+  line-height:1.1;
+  z-index:2;
+}
+
+.ex-float-card .ex-card-title{
+  font-size:7px;
+  font-weight:900;
+  letter-spacing:.02em;
+}
+
+.ex-float-card .ex-card-effect{
+  font-size:6px;
+  font-weight:700;
+  border-top:1px solid #000;
+  padding-top:2px;
+}
 /* 追加機能専用ダイアログ（既存ダイアログには干渉しない） */
 #exDialogBackdrop{ z-index:99999; }
 
@@ -1112,10 +1177,10 @@ z-index: 10;
 <body>
 
 <header>
-  <h1>テンプレ</h1>
+  <h1>ギャングポーカー</h1>
   <div style="display:flex;align-items:center;gap:6px;">
     <div class="small" id="roomInfo"></div>
-    <button class="btn ghost" id="copyLinkBtn">リンクコピー</button>
+    <button class="btn ghost" id="copyLinkBtn">COPY</button>
   </div>
 </header>
 
@@ -1258,6 +1323,11 @@ z-index: 10;
       <button class="btn primary" id="exDialogYes">はい</button>
     </div>
   </div>
+</div>
+
+<!-- 追加カード拡大表示 -->
+<div id="exZoomBackdrop" class="ex-zoom-backdrop hidden" aria-hidden="true">
+  <div id="exZoomCard" class="ex-zoom-card" role="img" aria-label="拡大カード"></div>
 </div>
 
 
@@ -5451,7 +5521,7 @@ copyLinkBtn.addEventListener('click', async () => {
     inputCode.value = state.roomCode;
     setTimeout(()=>{
       copyLinkBtn.classList.remove('copied');
-      copyLinkBtn.textContent='リンクコピー';
+      copyLinkBtn.textContent='COPY';
     },1500);
   } catch {
     prompt('コピーできません。手動でコピーしてください', url);
@@ -5898,6 +5968,14 @@ btnStartPopClose.addEventListener('click', () => {
 
 btnGameStart.addEventListener('click', async () => {
   await hostStartGameWithDealCount(2);
+  startPop.classList.add('hidden');
+});
+
+document.addEventListener('click', (e) => {
+  if (startPop.classList.contains('hidden')) return;
+  if (startPop.contains(e.target)) return;
+  if (hostSettingsBtn.contains(e.target)) return;
+  startPop.classList.add('hidden');
 });
 
 
@@ -5917,6 +5995,12 @@ btnResetRoom.addEventListener('click', async () => {
     remove(ref(db, `${base}/reveal`)),
     /* ：リセット時は左上カードも全部裏（=状態削除→デフォルト裏表示） */
     remove(ref(db, `${base}/sideCards`)),
+    remove(ref(db, `${base}/twoDecks/cards`)),
+    set(ref(db, `${base}/twoDecks`), {
+      specialist: { stack: [1,2,3,4,5,6,7,8,9,10] },
+      challenge:   { stack: [1,2,3,4,5,6,7,8,9,10] },
+      cards: {}
+    }),
   ]);
 
   state.seatedTable = null;
@@ -5940,6 +6024,11 @@ btnResetRoom.addEventListener('click', async () => {
   state.chipFaceDown = {};
   renderOwnedChips();
   renderChipPool(0);
+
+  exLocal.cardEls.forEach((el) => el?.remove?.());
+  exLocal.cardEls.clear();
+  exLocal.data = null;
+  exLocal.topZ = 0;
 });
 
 window.addEventListener('load', () => {
@@ -5961,6 +6050,8 @@ const exDialogBackdrop = document.getElementById('exDialogBackdrop');
 const exDialogText     = document.getElementById('exDialogText');
 const exDialogYes      = document.getElementById('exDialogYes');
 const exDialogNo       = document.getElementById('exDialogNo');
+const exZoomBackdrop   = document.getElementById('exZoomBackdrop');
+const exZoomCard       = document.getElementById('exZoomCard');
 
 const EX_LONGPRESS_MS = 520;
 const EX_MOVE_SLOP_PX = 8;
@@ -6037,9 +6128,11 @@ const exLocal = {
   data: null,
   cardEls: new Map(), // id -> el
   dragging: null,     // {id, offX, offY, moved, raf, lastCommit}
-  pressTimers: new Map()
+  pressTimers: new Map(),
+  topZ: 0,
+  lastDragId: null,
+  lastDragAt: 0
 };
-
 async function exEnsureTwoDecksRoot(){
   if (!state.roomCode) return;
   const baseRef = ref(db, exRoomPath(''));
@@ -6067,6 +6160,11 @@ function exSubscribe(){
   const baseRef = ref(db, exRoomPath(''));
   onValue(baseRef, (snap) => {
     exLocal.data = snap.val() || null;
+    const cards = exLocal.data?.cards || {};
+    exLocal.topZ = Object.values(cards).reduce((maxZ, card) => {
+      const z = Number(card?.z || 0);
+      return Number.isFinite(z) ? Math.max(maxZ, z) : maxZ;
+    }, exLocal.topZ || 0);
     exRenderAll();
   });
 }
@@ -6258,21 +6356,72 @@ function exBindDeckInteractions(stackEl, deckKey){
   stackEl.addEventListener('pointercancel', clear, { passive:false });
 }
 
+function exOpenZoom(src){
+  if (!exZoomBackdrop || !exZoomCard) return;
+  exZoomCard.style.backgroundImage = `url('${src}')`;
+  exZoomBackdrop.classList.remove('hidden');
+}
+
+function exCloseZoom(){
+  exZoomBackdrop?.classList?.add('hidden');
+}
+
+if (exZoomBackdrop){
+  exZoomBackdrop.addEventListener('click', (e) => {
+    if (e.target === exZoomBackdrop) exCloseZoom();
+  });
+}
+
+
 /* ---------- Card render/drag ---------- */
+function exGetCardImageFile(card){
+  const prefix = card.deckKey === 'challenge' ? 'C' : 'S';
+  const num = Number(card.num) || 0;
+  return `${prefix}${num}.jpg`;
+}
+
+function exGetCardTexts(card){
+  const num = Number(card.num) || 0;
+  if (card.deckKey === 'challenge'){
+    return {
+      title: `チャレンジ${num}`,
+      effect: `チャレンジ${num}が起きる。`
+    };
+  }
+  return {
+    title: `スペシャル${num}`,
+    effect: `スペシャル${num}が起きる。`
+  };
+}
+
 function exMakeCardEl(cardId, card){
   const el = document.createElement('div');
   el.className = 'ex-float-card ' + (card.deckKey === 'challenge' ? 'ex-challenge' : 'ex-specialist');
   el.dataset.cardId = cardId;
+  const bgSrc = exGetCardImageFile(card);
+  el.style.backgroundImage = `url('${bgSrc}')`;
 
-  const mini = document.createElement('div');
-  mini.className = 'ex-mini';
+  const number = document.createElement('div');
+  number.className = 'ex-card-number';
+  number.textContent = String(card.num ?? '');
 
-  const label = document.createElement('div');
-  label.className = 'ex-label';
-  label.textContent = card.label ?? '';
+  const info = document.createElement('div');
+  info.className = 'ex-card-info';
 
-  el.appendChild(mini);
-  el.appendChild(label);
+  const title = document.createElement('div');
+  title.className = 'ex-card-title';
+
+  const effect = document.createElement('div');
+  effect.className = 'ex-card-effect';
+
+  const texts = exGetCardTexts(card);
+  title.textContent = texts.title;
+  effect.textContent = texts.effect;
+
+  info.appendChild(title);
+  info.appendChild(effect);
+  el.appendChild(number);
+  el.appendChild(info);
 
   // long press to return
   let press = null;
@@ -6297,10 +6446,13 @@ el.addEventListener('pointerdown', async (e) => {
     }, EX_LONGPRESS_MS);
 
     // lock（ゆるい）
+    exLocal.topZ = Math.max(exLocal.topZ || 0, exNow()) + 1;
+    const topZ = exLocal.topZ;
+    el.style.zIndex = String(topZ);
     update(ref(db, exRoomPath(`cards/${cardId}`)), {
       lockBy: state.userId,
       lockAt: exNow(),
-      z: exNow(),
+      z: topZ,
       updatedAt: exNow(),
       updatedBy: state.userId
     }).catch(()=>{});
@@ -6313,7 +6465,8 @@ el.addEventListener('pointerdown', async (e) => {
       offY: e.clientY - r.top,
       moved: false,
       raf: 0,
-      lastCommit: 0
+      lastCommit: 0,
+      z: topZ
     };
 
     const onMove = (ev) => exOnCardMove(ev);
@@ -6323,6 +6476,13 @@ el.addEventListener('pointerdown', async (e) => {
     window.addEventListener('pointerup', onUp, { passive:false });
     window.addEventListener('pointercancel', onUp, { passive:false });
   }, { passive:false });
+
+  el.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (exLocal.lastDragId === cardId && (exNow() - exLocal.lastDragAt) < 400) return;
+    exOpenZoom(bgSrc);
+  });
 
   el.addEventListener('dblclick', (e) => {
     e.preventDefault();
@@ -6370,6 +6530,7 @@ el.addEventListener('pointerdown', async (e) => {
     window.removeEventListener('pointercancel', onUp);
 
     const wasLong = firedLong;
+    const moved = !!exLocal.dragging?.moved;
     clear();
 
     // lock解除（返却で消えててもOK）
@@ -6381,6 +6542,11 @@ el.addEventListener('pointerdown', async (e) => {
     }).catch(()=>{});
 
     exLocal.dragging = null;
+
+    if (wasLong || moved){
+      exLocal.lastDragId = cardId;
+      exLocal.lastDragAt = exNow();
+    }
 
     if (wasLong) return;
   }
@@ -6395,10 +6561,17 @@ function exUpdateCardEl(el, card){
   el.style.top  = `${top}px`;
   el.style.transform = `rotate(${Number(card.rot || 0)}deg)`;
   el.style.zIndex = String(Number(card.z || 0) || 1);
+  el.style.backgroundImage = `url('${exGetCardImageFile(card)}')`;
 
-  const label = el.querySelector('.ex-label');
-  const text = card.label ?? ((card.deckKey === 'challenge') ? `C${card.num}` : String(card.num));
-  if (label && label.textContent !== text) label.textContent = text;
+  const number = el.querySelector('.ex-card-number');
+  const numberText = String(card.num ?? '');
+  if (number && number.textContent !== numberText) number.textContent = numberText;
+
+  const texts = exGetCardTexts(card);
+  const title = el.querySelector('.ex-card-title');
+  if (title && title.textContent !== texts.title) title.textContent = texts.title;
+  const effect = el.querySelector('.ex-card-effect');
+  if (effect && effect.textContent !== texts.effect) effect.textContent = texts.effect;
 
   el.classList.toggle('ex-challenge', card.deckKey === 'challenge');
   el.classList.toggle('ex-specialist', card.deckKey !== 'challenge');
