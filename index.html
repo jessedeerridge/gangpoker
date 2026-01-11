@@ -574,7 +574,7 @@
   .pcard.black{ color:#111; }
   .pcard.special7-card{
     border:1px solid #111;
-    background: url('S7.jpg') center/cover no-repeat;
+    background: url('s7.jpg') center/cover no-repeat;
   }
 
   .pcard.special7-card .special7-info{
@@ -6701,7 +6701,7 @@ if (exZoomCard){
 
 /* ---------- Card render/drag ---------- */
 function exGetCardImageFile(card){
-  const prefix = card.deckKey === 'challenge' ? 'C' : 'S';
+  const prefix = card.deckKey === 'challenge' ? 'c' : 's';
   const num = Number(card.num) || 0;
   return `${prefix}${num}.jpg`;
 }
@@ -7024,3 +7024,4 @@ function exRenderAll(){
 
 </body>
 </html>
+
