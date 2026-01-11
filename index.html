@@ -1282,6 +1282,32 @@ z-index: 10;
   animation:s9ShuffleJitter .9s cubic-bezier(.22,.84,.44,1) both;
 }
 
+/* 既存の .help-pop-body スタイルに追加 */
+.help-pop-body {
+  touch-action: auto !important;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* ヘルプポップアップ自体にもタッチ操作を許可 */
+.help-pop {
+  touch-action: auto;
+}
+
+/* =========================
+   ★場のチップ表示用スタイル
+   ========================= */
+.board-row {
+  position: relative; /* ← 追加：子要素の絶対配置の基準にする */
+  display: flex;
+  gap: 8px;
+  pointer-events: auto;
+}
+
+.field-chip {
+  pointer-events: none; /* クリックできないように */
+}
+
 
 </style>
 </head>
@@ -1458,9 +1484,12 @@ import { getDatabase, ref, set, get, update, onValue, remove } from "https://www
    ★スクロール完全停止（iOS/トラックパッド対策）
    ========================= */
 document.addEventListener('touchmove', (e) => {
+  // ヘルプポップアップ内の要素は除外
+  if (e.target.closest('.help-pop-body') || e.target.closest('.help-pop')) {
+    return; // ヘルプ内ではデフォルト動作を許可
+  }
   e.preventDefault();
 }, { passive:false });
-
 document.addEventListener('wheel', (e) => {
   e.preventDefault();
 }, { passive:false });
@@ -2068,9 +2097,16 @@ function renderHelpList(){
 function openHelp(){
   renderHelpList();
   helpBackdrop.classList.remove('hidden');
+  // ヘルプ開いている間は背景のスクロール制限を一時的に解除
+  document.body.style.overflow = 'hidden';
+  document.body.style.touchAction = 'auto';
 }
+
 function closeHelp(){
   helpBackdrop.classList.add('hidden');
+  // ヘルプ閉じたら元のスクロール制限に戻す
+  document.body.style.overflow = 'hidden';
+  document.body.style.touchAction = 'none';
 }
 helpBtn.addEventListener('click', () => {
   if (joinBox.classList.contains('hidden')) openHelp();
@@ -4982,6 +5018,102 @@ function attachCenterInteractions(){
     boardRowEl.addEventListener('click', onBoardClick);
   }
 }
+
+/* =========================
+   ★場のカード枚数に応じたチップ表示
+   ========================= */
+function renderFieldChips() {
+  // 既存の場チップを削除
+  document.querySelectorAll('.field-chip').forEach(el => el.remove());
+  
+  // ゲームが開始されていない場合は何もしない
+  if (!state.game?.started) return;
+  
+  const boardCodes = getBoardCodes();
+  const boardRow = document.getElementById('boardRow');
+  const playerCircle = document.getElementById('playerCircle');
+  
+  if (!boardRow || !playerCircle) return;
+  
+  // 条件1: 場に2枚目のカードが存在しない時
+  // プレイサークルの中心に白チップ（星なし、0.7倍）を表示
+  if (boardCodes.length < 2) {
+    const chip = createFieldChip('白', 0, 0.7);
+    chip.style.position = 'absolute';
+    chip.style.left = '6%';
+    chip.style.top = '69%';
+    chip.style.transform = 'translate(-50%, -50%) scale(1.2)';
+    playerCircle.appendChild(chip);
+  }
+  
+  // 条件2: 場に2枚目のカードが存在する時
+  // 2枚目のカードの真下に黄チップ（星なし、0.7倍）を表示
+  if (boardCodes.length >= 2) {
+    const slotIndex = 1; // 2枚目なのでインデックス1
+    const slot = boardRow.querySelector(`.board-slot[data-slot="${slotIndex}"]`);
+    if (slot) {
+      const chip = createFieldChip('黄', 0, 0.7);
+      positionChipBelowSlot(chip, slot);
+      boardRow.appendChild(chip);
+    }
+  }
+  
+  // 条件3: 場に4枚目のカードが存在する時
+  // 4枚目のカードの真下にオレンジチップ（星なし、0.7倍）を表示
+  if (boardCodes.length >= 4) {
+    const slotIndex = 3; // 4枚目なのでインデックス3
+    const slot = boardRow.querySelector(`.board-slot[data-slot="${slotIndex}"]`);
+    if (slot) {
+      const chip = createFieldChip('オレンジ', 0, 0.7);
+      positionChipBelowSlot(chip, slot);
+      boardRow.appendChild(chip);
+    }
+  }
+  
+  // 条件4: 場に5枚目のカードが存在する時
+  // 5枚目のカードの真下に赤チップ（星なし、0.7倍）を表示
+  if (boardCodes.length >= 5) {
+    const slotIndex = 4; // 5枚目なのでインデックス4
+    const slot = boardRow.querySelector(`.board-slot[data-slot="${slotIndex}"]`);
+    if (slot) {
+      const chip = createFieldChip('赤', 0, 0.7);
+      positionChipBelowSlot(chip, slot);
+      boardRow.appendChild(chip);
+    }
+  }
+}
+
+function createFieldChip(colorKey, stars, scale) {
+  const color = CHIP_COLOR_MAP[colorKey] || CHIP_COLORS[0];
+  chipUid++;
+  const el = document.createElement('div');
+  el.className = 'field-chip';
+  el.style.width = `calc(var(--chip-d) * ${scale})`;
+  el.style.height = `calc(var(--chip-d) * ${scale})`;
+  el.style.position = 'absolute';
+  el.style.zIndex = '190'; // カードより下、背景より上
+  el.innerHTML = chipSVG(color, stars, chipUid, false);
+  return el;
+}
+
+function positionChipBelowSlot(chipEl, slotEl) {
+  const slotRect = slotEl.getBoundingClientRect();
+  const boardRowRect = slotEl.parentNode.getBoundingClientRect();
+  const chipD = getChipD();
+  const scale = 0.7;
+  
+  // スロットの中央下に配置
+  const slotCenterX = slotRect.left + slotRect.width / 2;
+  const chipLeft = slotCenterX - (chipD * scale) / 2;
+  
+  // boardRowを基準とした相対位置
+  const relativeLeft = chipLeft - boardRowRect.left;
+  const relativeTop = slotRect.bottom - boardRowRect.top + 5; // カードの下5px
+  
+  chipEl.style.left = `${relativeLeft}px`;
+  chipEl.style.top = `${relativeTop}px`;
+}
+
 function renderCenterBoard(){
   const deckStackEl = playerCircle.querySelector('#deckStack');
   const boardRowEl  = playerCircle.querySelector('#boardRow');
@@ -5014,6 +5146,8 @@ function renderCenterBoard(){
       }
     }
   });
+  renderFieldChips();
+
 }
 
 /* =========================
