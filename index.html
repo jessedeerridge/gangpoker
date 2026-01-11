@@ -850,7 +850,7 @@ z-index: 10;
   position:fixed;
   left:16px;
   bottom:76px; /* 左下ボタン(？)と干渉しないように少し上 */
-  z-index:260;
+  z-index:205;
   display:flex;
   gap:10px;
   pointer-events:auto;
@@ -931,6 +931,7 @@ z-index: 10;
   touch-action:none; /* ドラッグ用 */
   cursor:grab;
   overflow:hidden;
+  z-index:210;
 }
 .ex-float-card:active{ cursor:grabbing; }
 
@@ -959,10 +960,60 @@ z-index: 10;
   width:180px;
   height:270px;
   border-radius:12px;
-  border:1px solid rgba(255,255,255,.6);
+  border:2px solid #111;
   background:#fff center/cover no-repeat;
   box-shadow:0 16px 40px rgba(0,0,0,.35);
+  position:relative;
+  overflow:hidden;
 }
+.ex-zoom-card .ex-card-number{
+  position:absolute;
+  top:6px;
+  right:6px;
+  width:22px;
+  height:22px;
+  border-radius:6px;
+  border:2px solid #fff;
+  background:#fff;
+  color:#f97316;
+  font-size:14px;
+  font-weight:900;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  z-index:2;
+}
+.ex-zoom-card .ex-card-info{
+  position:absolute;
+  left:10px;
+  right:10px;
+  bottom:10px;
+  height:64px;
+  background:#fff;
+  border:2px solid #000;
+  border-radius:8px;
+  color:#000;
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  gap:4px;
+  padding:6px 8px;
+  text-align:center;
+  line-height:1.2;
+  z-index:2;
+}
+.ex-zoom-card .ex-card-title{
+  font-size:12px;
+  font-weight:900;
+  letter-spacing:.02em;
+}
+.ex-zoom-card .ex-card-effect{
+  font-size:10px;
+  font-weight:700;
+  border-top:2px solid #000;
+  padding-top:4px;
+}
+
 .ex-float-card .ex-card-number{
   position:absolute;
   top:2px;
@@ -1327,9 +1378,14 @@ z-index: 10;
 
 <!-- 追加カード拡大表示 -->
 <div id="exZoomBackdrop" class="ex-zoom-backdrop hidden" aria-hidden="true">
-  <div id="exZoomCard" class="ex-zoom-card" role="img" aria-label="拡大カード"></div>
+  <div id="exZoomCard" class="ex-zoom-card" role="img" aria-label="拡大カード">
+    <div class="ex-card-number" aria-hidden="true"></div>
+    <div class="ex-card-info" aria-hidden="true">
+      <div class="ex-card-title"></div>
+      <div class="ex-card-effect"></div>
+    </div>
+  </div>
 </div>
-
 
 <div id="special9Layer" class="s9-layer hidden"></div>
 <div id="dragLayer"></div>
@@ -1963,29 +2019,6 @@ btnHelpClose.addEventListener('click', closeHelp);
 helpBackdrop.addEventListener('click', (e) => {
   if (e.target === helpBackdrop) closeHelp();
 });
-
-/* =========================
-   ：スペシャルカード1/5 ダブルクリック
-   - ex-float-card の表示文字が "1" / "5" のとき発動
-   ========================= */
-document.addEventListener('dblclick', async (e) => {
-  const card = e.target.closest('.ex-float-card');
-  if (!card) return;
-
-  const v = (card.dataset.value || card.textContent || '').trim();
-  if (v === '1'){
-    startSpecial1();
-  } else if (v === '5'){
-    await startSpecial5();
-  } else if (v === '6'){
-    await startSpecial6();
-  } else if (v === '7'){
-    await startSpecial7(card); // ★追加：スペシャル7
-  } else if (v === '9'){
-    await startSpecial9();
-  }
-}, { capture:true });
-
 
 
 
@@ -5363,41 +5396,6 @@ function subscribeReveal(){
   });
 }
 
-document.addEventListener('dblclick', async (e) => {
-  const el = e.target.closest('.ex-float-card');
-  if (!el) return;
-
-  // 表示文字 or datasetからカードコード取得（どちらでも動くように）
-  const code = (el.dataset.code || el.textContent || '').trim();
-
-  // C10：スタート同等＋3枚配布（スタートと同じくホストのみ）
-  if (code === 'C10'){
-    e.preventDefault();
-    e.stopPropagation();
-    if (!state.isHost) return;
-    await hostStartGameWithDealCount(3);
-    return;
-  }
-
-  // C3：条件一致時のみ、白1所持者が捨て→2枚ドロー（誰が押してもOKにしてある）
-  if (code === 'C3'){
-    e.preventDefault();
-    e.stopPropagation();
-    await triggerC3Effect();
-    return;
-  }
-
-
-
-  // C7：場1-3枚目に絵札が無い時、最高白チップ所持者が引きなおす
-  if (code === 'C7'){
-    e.preventDefault();
-    e.stopPropagation();
-    await triggerC7Effect();
-    return;
-  }
-}, true);
-
 
 /* =========================
    ★ 手札描画
@@ -6052,6 +6050,8 @@ const exDialogYes      = document.getElementById('exDialogYes');
 const exDialogNo       = document.getElementById('exDialogNo');
 const exZoomBackdrop   = document.getElementById('exZoomBackdrop');
 const exZoomCard       = document.getElementById('exZoomCard');
+let exZoomActiveCard = null;
+let exZoomActiveCardId = null;
 
 const EX_LONGPRESS_MS = 520;
 const EX_MOVE_SLOP_PX = 8;
@@ -6068,6 +6068,17 @@ function exRndId(){
 
 function exClamp(v, min, max){ return Math.max(min, Math.min(max, v)); }
 function exNow(){ return Date.now(); }
+const EX_CARD_Z_BASE = 210;
+const EX_CARD_Z_RANGE = 8;
+
+function exNormalizeCardZ(z){
+  const raw = Number.isFinite(z) ? z : 0;
+  return ((raw % EX_CARD_Z_RANGE) + EX_CARD_Z_RANGE) % EX_CARD_Z_RANGE;
+}
+
+function exToCardZ(z){
+  return EX_CARD_Z_BASE + exNormalizeCardZ(z);
+}
 
 function exRoomPath(sub){
   return `rooms/${state.roomCode}/twoDecks${sub ? '/' + sub : ''}`;
@@ -6133,6 +6144,11 @@ const exLocal = {
   lastDragId: null,
   lastDragAt: 0
 };
+function exNextCardZ(){
+  exLocal.topZ = exNormalizeCardZ((exLocal.topZ ?? 0) + 1);
+  return exLocal.topZ;
+}
+
 async function exEnsureTwoDecksRoot(){
   if (!state.roomCode) return;
   const baseRef = ref(db, exRoomPath(''));
@@ -6162,7 +6178,7 @@ function exSubscribe(){
     exLocal.data = snap.val() || null;
     const cards = exLocal.data?.cards || {};
     exLocal.topZ = Object.values(cards).reduce((maxZ, card) => {
-      const z = Number(card?.z || 0);
+      const z = exNormalizeCardZ(Number(card?.z || 0));
       return Number.isFinite(z) ? Math.max(maxZ, z) : maxZ;
     }, exLocal.topZ || 0);
     exRenderAll();
@@ -6233,7 +6249,7 @@ async function exDrawTop(deckKey){
     x: pos01.x,
     y: pos01.y,
     rot: 0,
-    z: exNow(),
+    z: exNextCardZ(),
     createdAt: exNow(),
     createdBy: state.userId,
     updatedAt: exNow(),
@@ -6356,14 +6372,29 @@ function exBindDeckInteractions(stackEl, deckKey){
   stackEl.addEventListener('pointercancel', clear, { passive:false });
 }
 
-function exOpenZoom(src){
-  if (!exZoomBackdrop || !exZoomCard) return;
+function exOpenZoom(card, cardId){
+  if (!exZoomBackdrop || !exZoomCard || !card) return;
+  exZoomActiveCard = card;
+  exZoomActiveCardId = cardId || null;
+  const src = exGetCardImageFile(card);
   exZoomCard.style.backgroundImage = `url('${src}')`;
+
+  const number = exZoomCard.querySelector('.ex-card-number');
+  if (number) number.textContent = String(card.num ?? '');
+
+  const texts = exGetCardTexts(card);
+  const title = exZoomCard.querySelector('.ex-card-title');
+  const effect = exZoomCard.querySelector('.ex-card-effect');
+  if (title) title.textContent = texts.title;
+  if (effect) effect.textContent = texts.effect;
+
   exZoomBackdrop.classList.remove('hidden');
 }
 
 function exCloseZoom(){
   exZoomBackdrop?.classList?.add('hidden');
+  exZoomActiveCard = null;
+  exZoomActiveCardId = null;
 }
 
 if (exZoomBackdrop){
@@ -6371,6 +6402,59 @@ if (exZoomBackdrop){
     if (e.target === exZoomBackdrop) exCloseZoom();
   });
 }
+
+async function exUseZoomCard(card, cardId){
+  if (!card) return;
+  if (card.deckKey === 'challenge'){
+    if (Number(card.num) === 10){
+      if (!state.isHost) return;
+      await hostStartGameWithDealCount(3);
+      return;
+    }
+    if (Number(card.num) === 3){
+      await triggerC3Effect();
+      return;
+    }
+    if (Number(card.num) === 7){
+      await triggerC7Effect();
+      return;
+    }
+    return;
+  }
+
+  const specialNum = Number(card.num);
+  if (specialNum === 1){
+    startSpecial1();
+  } else if (specialNum === 5){
+    await startSpecial5();
+  } else if (specialNum === 6){
+    await startSpecial6();
+  } else if (specialNum === 7){
+    const cardEl = cardId ? exLocal.cardEls.get(cardId) : null;
+    await startSpecial7(cardEl);
+  } else if (specialNum === 9){
+    await startSpecial9();
+  }
+}
+
+if (exZoomCard){
+  exZoomCard.addEventListener('click', async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!exZoomActiveCard) return;
+    const num = Number(exZoomActiveCard.num);
+    const isChallenge = exZoomActiveCard.deckKey === 'challenge';
+    const hasEffect = isChallenge
+      ? [3, 7, 10].includes(num)
+      : [1, 5, 6, 7, 9].includes(num);
+    if (!hasEffect) return;
+    const ok = await exConfirm('使いますか？');
+    if (!ok) return;
+    await exUseZoomCard(exZoomActiveCard, exZoomActiveCardId);
+    exCloseZoom();
+  });
+}
+
 
 
 /* ---------- Card render/drag ---------- */
@@ -6383,15 +6467,33 @@ function exGetCardImageFile(card){
 function exGetCardTexts(card){
   const num = Number(card.num) || 0;
   if (card.deckKey === 'challenge'){
-    return {
-      title: `チャレンジ${num}`,
-      effect: `チャレンジ${num}が起きる。`
+    const challengeTexts = {
+      1: { title: 'クイックアクセス', effect: 'この強盗では白チップを使用しない。' },
+      2: { title: 'ノイズセンサー', effect: 'ラウンド1・2・3の★1チップをすべて裏面にする。裏面のチップは奪取できない。' },
+      3: { title: 'モーションディテクター', effect: '最初の3枚にJ・Q・Kがある場合、白★1チップを持つプレイヤーはカードを引き直す。' },
+      4: { title: 'チャレンジ4', effect: 'チャレンジ4が起きる。' },
+      5: { title: 'チャレンジ5', effect: 'チャレンジ5が起きる。' },
+      6: { title: 'チャレンジ6', effect: 'チャレンジ6が起きる。' },
+      7: { title: 'チャレンジ7', effect: 'チャレンジ7が起きる。' },
+      8: { title: 'チャレンジ8', effect: 'チャレンジ8が起きる。' },
+      9: { title: 'チャレンジ9', effect: 'チャレンジ9が起きる。' },
+      10: { title: 'チャレンジ10', effect: 'チャレンジ10が起きる。' }
     };
+    return challengeTexts[num] || { title: 'チャレンジ', effect: 'チャレンジが起きる。' };
   }
-  return {
-    title: `スペシャル${num}`,
-    effect: `スペシャル${num}が起きる。`
+  const specialTexts = {
+    1: { title: 'スペシャル1', effect: 'スペシャル1が起きる。' },
+    2: { title: 'スペシャル2', effect: 'スペシャル2が起きる。' },
+    3: { title: 'スペシャル3', effect: 'スペシャル3が起きる。' },
+    4: { title: 'スペシャル4', effect: 'スペシャル4が起きる。' },
+    5: { title: 'スペシャル5', effect: 'スペシャル5が起きる。' },
+    6: { title: 'スペシャル6', effect: 'スペシャル6が起きる。' },
+    7: { title: 'スペシャル7', effect: 'スペシャル7が起きる。' },
+    8: { title: 'スペシャル8', effect: 'スペシャル8が起きる。' },
+    9: { title: 'スペシャル9', effect: 'スペシャル9が起きる。' },
+    10: { title: 'スペシャル10', effect: 'スペシャル10が起きる。' }
   };
+  return specialTexts[num] || { title: 'スペシャル', effect: 'スペシャルが起きる。' };
 }
 
 function exMakeCardEl(cardId, card){
@@ -6446,9 +6548,8 @@ el.addEventListener('pointerdown', async (e) => {
     }, EX_LONGPRESS_MS);
 
     // lock（ゆるい）
-    exLocal.topZ = Math.max(exLocal.topZ || 0, exNow()) + 1;
-    const topZ = exLocal.topZ;
-    el.style.zIndex = String(topZ);
+    const topZ = exNextCardZ();
+    el.style.zIndex = String(exToCardZ(topZ));
     update(ref(db, exRoomPath(`cards/${cardId}`)), {
       lockBy: state.userId,
       lockAt: exNow(),
@@ -6481,13 +6582,10 @@ el.addEventListener('pointerdown', async (e) => {
     e.preventDefault();
     e.stopPropagation();
     if (exLocal.lastDragId === cardId && (exNow() - exLocal.lastDragAt) < 400) return;
-    exOpenZoom(bgSrc);
+    const latest = exLocal.data?.cards?.[cardId] || card;
+    exOpenZoom(latest, cardId);
   });
 
-  el.addEventListener('dblclick', (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-  }, { passive:false });
 
   function exOnCardMove(e){
     if (!exLocal.dragging || exLocal.dragging.id !== cardId) return;
@@ -6515,7 +6613,7 @@ el.addEventListener('pointerdown', async (e) => {
     update(ref(db, exRoomPath(`cards/${cardId}`)), {
       x: pos01.x,
       y: pos01.y,
-      z: exNow(),
+      z: exLocal.dragging.z,
       updatedAt: exNow(),
       updatedBy: state.userId
     }).catch(()=>{});
@@ -6560,7 +6658,7 @@ function exUpdateCardEl(el, card){
   el.style.left = `${left}px`;
   el.style.top  = `${top}px`;
   el.style.transform = `rotate(${Number(card.rot || 0)}deg)`;
-  el.style.zIndex = String(Number(card.z || 0) || 1);
+  el.style.zIndex = String(exToCardZ(card.z || 0));
   el.style.backgroundImage = `url('${exGetCardImageFile(card)}')`;
 
   const number = el.querySelector('.ex-card-number');
