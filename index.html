@@ -202,7 +202,7 @@
   .player-tag .mini-card{
     position:absolute;left:50%;top:0;width:16px;height:22px;
     border-radius:4px;border:1px solid #bbb;
-    background:linear-gradient(135deg,#e5e7eb,#cbd5f5);
+    background: var(--card-back-url) center/cover no-repeat !important;
     font-size:10px;display:flex;align-items:center;justify-content:center;
     transform-origin:bottom center;
     box-shadow:0 2px 6px rgba(0,0,0,.15);
@@ -1656,6 +1656,7 @@ const chipPool = document.getElementById('chipPool');
 const chipPoolArea = document.getElementById('chipPoolArea');
 const dragLayer = document.getElementById('dragLayer');
 const special9Layer = document.getElementById('special9Layer');
+const exTwoDecks = document.getElementById('exTwoDecks');
 
 /* ：左上カードDOM */
 const sideCardsEl = document.getElementById('sideCards');
@@ -2126,6 +2127,58 @@ let latestPlayers = [];
 
 let isDealAnimating = false;
 function sleep(ms){ return new Promise(r=>setTimeout(r, ms)); }
+
+/* =========================================================
+   ★追加：席奪取時に「手札・チップ所有」を旧PID→新PIDへ付け替える
+   - tables の playerId を差し替えるだけだと、
+     hands/{pid} と chipOwners が旧pidに残って “引き継げない” のが原因
+   ========================================================= */
+async function takeoverAssetsOnSeatSteal(roomCode, fromPid, toPid){
+  if (!roomCode || !fromPid || !toPid) return;
+  if (fromPid === toPid) return;
+
+  const roomRef = ref(db, `rooms/${roomCode}`);
+
+  // 1) 手札（hands/{pid}/cards）
+  const [fromHandSnap, toHandSnap] = await Promise.all([
+    get(ref(db, `rooms/${roomCode}/hands/${fromPid}/cards`)),
+    get(ref(db, `rooms/${roomCode}/hands/${toPid}/cards`)),
+  ]);
+
+  const fromCards = Array.isArray(fromHandSnap.val()) ? fromHandSnap.val() : [];
+  const toCards   = Array.isArray(toHandSnap.val()) ? toHandSnap.val() : [];
+
+  // 2) チップ所有（chipOwners: chipId -> ownerPid）
+  const ownersSnap = await get(ref(db, `rooms/${roomCode}/chipOwners`));
+  const owners = ownersSnap.val() || {};
+
+  const toOwnedCount = Object.values(owners).filter(v => v === toPid).length;
+
+  // ★重要：奪取者(toPid)に既に手札/チップがある場合は上書き事故を防ぐ
+  //   - 「必ず旧席の状態を奪取者に移したい」なら、この条件を外せばOK
+  const shouldMoveHand  = (fromCards.length > 0 && toCards.length === 0);
+  const shouldMoveChips = (toOwnedCount === 0);
+
+  const patch = {};
+
+  if (shouldMoveHand){
+    patch[`hands/${toPid}/cards`] = fromCards;
+    patch[`hands/${fromPid}/cards`] = null; // nullで削除（孤児化防止）
+  }
+
+  if (shouldMoveChips){
+    for (const [chipId, ownerPid] of Object.entries(owners)){
+      if (ownerPid === fromPid){
+        patch[`chipOwners/${chipId}`] = toPid;
+      }
+    }
+  }
+
+  if (Object.keys(patch).length){
+    await update(roomRef, patch);
+  }
+}
+
 
 /* =========================================================
    ：スペシャルカード(1/5)
@@ -5713,6 +5766,8 @@ btnJoin.addEventListener('click', async () => {
 
   joinBox.classList.add('hidden');
   lobby.classList.remove('hidden');
+exTwoDecks?.classList.remove('hidden');
+
   lobby.classList.add('entered');
 
   await restoreSeatFromDB();
@@ -6068,6 +6123,10 @@ btnKickYes.addEventListener('click', async (e) => {
   }
 
   const seatIndex = pendingSeatIndexToSteal;
+
+  // ★追加：奪取される側のPID（ここが “手札/チップ” の紐づき元）
+  const stealFromPid = pendingSeatPlayerIdToSteal;
+
   const roomRef = ref(db, `rooms/${state.roomCode}`);
   const roomSnap = await get(roomRef);
   const roomData = roomSnap.val() || {};
@@ -6075,8 +6134,14 @@ btnKickYes.addEventListener('click', async (e) => {
   const tRef = ref(db, `rooms/${state.roomCode}/tables/${seatIndex}`);
   await set(tRef, { playerId: state.userId, playerName: state.userName || '名無し' });
 
-  if (roomData.hostId && pendingSeatPlayerIdToSteal && roomData.hostId === pendingSeatPlayerIdToSteal) {
+  if (roomData.hostId && stealFromPid && roomData.hostId === stealFromPid) {
     await update(roomRef, { hostId: state.userId });
+  }
+
+  // ★追加：席奪取＝「席の状態（手札/チップ所有）も旧PID→自分PIDへ付け替え」
+  //   - これが無いと “座席だけ自分になる” ので手札/チップが引き継がれない
+  if (stealFromPid && stealFromPid !== state.userId) {
+    await takeoverAssetsOnSeatSteal(state.roomCode, stealFromPid, state.userId);
   }
 
   state.seatedTable = seatIndex;
@@ -6087,6 +6152,8 @@ btnKickYes.addEventListener('click', async (e) => {
 
   seatPop.classList.add('hidden');
 });
+
+
 
 /* =========================
    ★ ゲーム開始（既存維持）
@@ -7024,5 +7091,4 @@ function exRenderAll(){
 
 </body>
 </html>
-
 
