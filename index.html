@@ -1308,6 +1308,36 @@ z-index: 10;
   display: flex;
   gap: 8px;
   pointer-events: auto;
+
+  /* =========================
+     中央カードの上下ライン（調整用）
+     ここだけ触れば高さ調整できます
+     ========================= */
+  --middle-line-color: #000;
+  --middle-line-thickness: 2px;
+  --middle-line-top-y: -12px;      /* 上の黒線の高さ（board-row上端から） */
+  --middle-line-bottom-y: calc(100% + 12px); /* 下の黒線の高さ（board-row上端から） */
+}
+
+.board-row::before,
+.board-row::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  width: 100vw; /* 端から端まで */
+  height: var(--middle-line-thickness);
+  background: var(--middle-line-color);
+  transform: translateX(-50%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.board-row::before {
+  top: var(--middle-line-top-y);
+}
+
+.board-row::after {
+  top: var(--middle-line-bottom-y);
 }
 
 .field-chip {
