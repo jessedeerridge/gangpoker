@@ -239,6 +239,17 @@
   .reveal-card .pcard .pips{ top:10px !important; bottom:10px !important; }
 
   :root{ --chip-d: 24px; }
+  /* =========================
+     中央カード（data-slot="2"）の上下ライン設定
+     ※ ここを調整すると線の位置を変えられます
+     ========================= */
+  :root{
+    --middle-slot-line-width: 72px;
+    --middle-slot-line-thickness: 2px;
+    --middle-slot-line-top-offset: -16px;
+    --middle-slot-line-bottom-offset: -16px;
+  }
+
   .owned-chips{
     display:flex;
     align-items:center;
@@ -561,6 +572,25 @@
     pointer-events:auto;
   }
   .board-slot.has-card{ cursor:pointer; }
+
+  /* 中央のカードスロットだけ、上と下に黒線を表示 */
+  .board-slot[data-slot="2"]::before,
+  .board-slot[data-slot="2"]::after{
+    content:'';
+    position:absolute;
+    left:50%;
+    width:var(--middle-slot-line-width);
+    height:var(--middle-slot-line-thickness);
+    background:#000;
+    transform:translateX(-50%);
+    pointer-events:none;
+  }
+  .board-slot[data-slot="2"]::before{
+    top:var(--middle-slot-line-top-offset);
+  }
+  .board-slot[data-slot="2"]::after{
+    bottom:var(--middle-slot-line-bottom-offset);
+  }
 
   .pcard{
     width:60px;height:90px;
