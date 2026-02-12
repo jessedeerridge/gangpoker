@@ -3279,6 +3279,31 @@ async function revealMyHand(){
 }
 
 let _startingReveal = false;
+let _resettingReveal = false;
+async function maybeResetRevealPhaseIfNotReady(){
+  if (_resettingReveal) return;
+  if (!state.isHost || !state.roomCode) return;
+
+  const n = getMaxPlayers();
+  if (!n) return;
+
+  const owners = state.chipOwners || {};
+  const redIds = allRedChipIds(n);
+  const hasUnownedRed = redIds.some(id => !owners[id]);
+  if (!hasUnownedRed) return;
+
+  const revealRef = ref(db, `rooms/${state.roomCode}/reveal`);
+  const snap = await get(revealRef);
+  const cur = snap.val();
+  if (!cur) return;
+
+  _resettingReveal = true;
+  try{
+    await set(revealRef, null);
+  } finally {
+    _resettingReveal = false;
+  }
+}
 async function maybeStartRevealPhaseIfReady(){
   if (_startingReveal) return;
   if (!state.isHost || !state.roomCode) return;
@@ -5604,7 +5629,10 @@ function subscribeChipOwners(){
     renderOwnedChips();
     updateOwnCircleToFit();
 
-    if (state.isHost) maybeStartRevealPhaseIfReady();
+    if (state.isHost) {
+      maybeResetRevealPhaseIfNotReady();
+      maybeStartRevealPhaseIfReady();
+    }
   });
 }
 function subscribeChipPoolPos(){
