@@ -3751,7 +3751,8 @@ let chipState = {
   raf: 0,
   dragMeta: {},
   press: null,
-  lastTap: {}
+  lastTap: {},
+  returnTimers: {}
 };
 
 const DOUBLE_TAP_MS = 320;
@@ -3776,6 +3777,35 @@ function clamp(v, min, max){
 }
 function getChipById(id){
   return chipState.chips.find(c => c.id === id) || null;
+}
+function clearChipReturnTimer(chipId){
+  const t = chipState.returnTimers?.[chipId];
+  if (!t) return;
+  clearTimeout(t);
+  delete chipState.returnTimers[chipId];
+}
+function scheduleChipReturnToHome(chipId, delayMs = 1000){
+  if (!chipId) return;
+  if (!chipState.returnTimers) chipState.returnTimers = {};
+  clearChipReturnTimer(chipId);
+
+  chipState.returnTimers[chipId] = setTimeout(() => {
+    clearChipReturnTimer(chipId);
+
+    const ch = getChipById(chipId);
+    if (!ch || !ch.el) return;
+    if (chipState.draggingId === chipId) return;
+    if (chipState.press && chipState.press.chipId === chipId) return;
+    if (state.chipOwners && state.chipOwners[chipId]) return;
+
+    resetChipToHome(ch);
+    applyChipTransform(ch);
+  }, delayMs);
+}
+function clearAllChipReturnTimers(){
+  if (!chipState.returnTimers) return;
+  Object.values(chipState.returnTimers).forEach(t => clearTimeout(t));
+  chipState.returnTimers = {};
 }
 function buildChipSetForPlayers(playerCount){
   const n = Math.max(0, Number(playerCount || 0));
@@ -4164,10 +4194,12 @@ function resolveOverlaps(draggingId){
           if (pushA){
             a.x -= nx * pushA;
             a.y -= ny * pushA;
+            if (!aIsDrag) scheduleChipReturnToHome(a.id, 1000);
           }
           if (pushB){
             b.x += nx * pushB;
             b.y += ny * pushB;
+            if (!bIsDrag) scheduleChipReturnToHome(b.id, 1000);
           }
 
           a.x = clamp(a.x, 0, W - d);
@@ -4185,6 +4217,7 @@ function resolveOverlaps(draggingId){
    ========================================================= */
 function startChipDragNow(ch, rectArea){
   chipState.draggingId = ch.id;
+  clearChipReturnTimer(ch.id);
   ch.el.classList.add('dragging');
   attachChipToDragLayer(ch);
 
@@ -4397,10 +4430,11 @@ function renderChipPool(playerCount){
   const n = Math.max(0, Number(playerCount || 0));
 
   if (!n){
+    clearAllChipReturnTimers();
     chipPoolArea.innerHTML = '';
     chipPool.style.width = '';
     chipPool.style.height = '';
-    chipState = { ...chipState, builtFor: null, chips: [], draggingId: null, dragMeta:{}, press:null, lastTap:{} };
+    chipState = { ...chipState, builtFor: null, chips: [], draggingId: null, dragMeta:{}, press:null, lastTap:{}, returnTimers:{} };
     return;
   }
 
@@ -4417,10 +4451,12 @@ function renderChipPool(playerCount){
   }
 
   chipState.builtFor = n;
+  clearAllChipReturnTimers();
   chipState.draggingId = null;
   chipState.dragMeta = {};
   chipState.press = null;
   chipState.lastTap = {};
+  chipState.returnTimers = {};
   chipPoolArea.innerHTML = '';
 
   const chips = buildChipSetForPlayers(n);
