@@ -147,9 +147,8 @@
   .player-wrap{
     position:absolute;
     transform:translate(-50%,-50%);
-    display:flex;
+    display:inline-flex;
     align-items:center;
-    gap:6px;
     z-index:211; /* ★変更 */
     pointer-events:auto;
   }
@@ -165,7 +164,7 @@
     transform:translateY(70px);
   }
 .player-wrap.top-seat .owned-chips{
-  transform:translateY(70px);
+  transform:translateY(calc(-50% + 70px));
 }
 
 
@@ -243,9 +242,12 @@
   .owned-chips{
     display:flex;
     align-items:center;
-    gap:4px;
+    gap:2px;
     min-height:var(--chip-d);
-    position:relative;
+    position:absolute;
+    left:calc(100% + 2px);
+    top:50%;
+    transform:translateY(-50%);
     z-index:212;
     pointer-events:auto;
   }
