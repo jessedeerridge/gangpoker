@@ -3799,9 +3799,20 @@ function layoutChipPositions(chips){
     const x = pad + col * (d + gap);
     const y = pad + row * (d + gap);
 
-    ch.x = clamp(x, 0, W - d);
-    ch.y = clamp(y, 0, H - d);
+    const fixedX = clamp(x, 0, W - d);
+    const fixedY = clamp(y, 0, H - d);
+    ch.homeX = fixedX;
+    ch.homeY = fixedY;
+    ch.x = fixedX;
+    ch.y = fixedY;
   });
+}
+
+function resetChipToHome(ch){
+  if (!ch) return;
+  if (!Number.isFinite(ch.homeX) || !Number.isFinite(ch.homeY)) return;
+  ch.x = ch.homeX;
+  ch.y = ch.homeY;
 }
 
 function applyChipTransform(ch){
@@ -4065,22 +4076,9 @@ async function commitChipPoolPosAll(){
 }
 function applyChipPoolPosFromState(){
   if (!chipState.chips.length) return;
-
-  const pos = state.chipPoolPos || {};
-  const rect = chipPoolArea.getBoundingClientRect();
-  const d = getChipD();
-  const W = rect.width, H = rect.height;
-
+  layoutChipPositions(chipState.chips);
   chipState.chips.forEach(ch => {
-    const p = pos[ch.id];
-    if (!p) return;
     if (chipState.draggingId === ch.id) return;
-
-    const nx = clamp(Number(p.x), 0, Math.max(0, W - d));
-    const ny = clamp(Number(p.y), 0, Math.max(0, H - d));
-    if (!Number.isFinite(nx) || !Number.isFinite(ny)) return;
-
-    ch.x = nx; ch.y = ny;
     attachChipToPool(ch);
     applyChipTransform(ch);
   });
@@ -4261,7 +4259,6 @@ function onChipPointerMove(e){
     ch.el.style.left = `${rectArea.left + ch.x}px`;
     ch.el.style.top  = `${rectArea.top  + ch.y}px`;
 
-    scheduleCommitChipPoolPos();
   } else {
     const left = mx - chipState.press.offX;
     const top  = my - chipState.press.offY;
@@ -4340,31 +4337,22 @@ async function onChipPointerUp(e, onMove, onUp){
   }
 
   if (droppedInPool){
-    const px = cx - rectArea.left - d/2;
-    const py = cy - rectArea.top  - d/2;
-    ch.x = clamp(px, 0, rectArea.width - d);
-    ch.y = clamp(py, 0, rectArea.height - d);
+    resetChipToHome(ch);
 
     attachChipToPool(ch);
     resolveOverlaps(null);
     chipState.chips.forEach(applyChipTransform);
     chipState.dragMeta[ch.id] = null;
-
-    scheduleCommitChipPoolPos();
     return;
   }
 
-  const meta = chipState.dragMeta[ch.id] || {};
-  const back = meta.lastWallPos || { x: meta.startX ?? ch.x, y: meta.startY ?? ch.y };
-  ch.x = back.x;
-  ch.y = back.y;
+  resetChipToHome(ch);
 
   attachChipToPool(ch);
   resolveOverlaps(null);
   chipState.chips.forEach(applyChipTransform);
 
   chipState.dragMeta[ch.id] = null;
-  scheduleCommitChipPoolPos();
 }
 
 /* =========================
@@ -4392,19 +4380,6 @@ function renderChipPool(playerCount){
   if (!needRebuild && chipState.chips.length){
     applyChipPoolPosFromState();
 
-    const hasAnyPos = state.chipPoolPos && Object.keys(state.chipPoolPos).length > 0;
-    if (!hasAnyPos){
-      layoutChipPositions(chipState.chips);
-      chipState.chips.forEach(ch => {
-        if (ch.id !== chipState.draggingId) applyChipTransform(ch);
-      });
-      resolveOverlaps(null);
-      chipState.chips.forEach(ch => {
-        if (ch.id !== chipState.draggingId) applyChipTransform(ch);
-      });
-      if (state.isHost) scheduleCommitChipPoolPos();
-    }
-
     applyChipOwnersToPool();
     applyChipFacesToPool();
     return;
@@ -4419,26 +4394,7 @@ function renderChipPool(playerCount){
 
   const chips = buildChipSetForPlayers(n);
 
-  const hasAnyPos = state.chipPoolPos && Object.keys(state.chipPoolPos).length > 0;
-
-  if (hasAnyPos){
-    const rect = chipPoolArea.getBoundingClientRect();
-    const d = getChipD();
-    const W = rect.width, H = rect.height;
-    chips.forEach(ch => {
-      const p = state.chipPoolPos[ch.id];
-      if (p && Number.isFinite(Number(p.x)) && Number.isFinite(Number(p.y))){
-        ch.x = clamp(Number(p.x), 0, Math.max(0, W - d));
-        ch.y = clamp(Number(p.y), 0, Math.max(0, H - d));
-      }
-    });
-    const missing = chips.filter(ch => !state.chipPoolPos[ch.id]);
-    if (missing.length){
-      layoutChipPositions(missing);
-    }
-  } else {
-    layoutChipPositions(chips);
-  }
+  layoutChipPositions(chips);
 
   chips.forEach(ch => {
     chipUid++;
@@ -4459,11 +4415,8 @@ function renderChipPool(playerCount){
 
   chipState.chips = chips;
 
-  if (!hasAnyPos){
-    resolveOverlaps(null);
-    chipState.chips.forEach(applyChipTransform);
-    if (state.isHost) scheduleCommitChipPoolPos();
-  }
+  resolveOverlaps(null);
+  chipState.chips.forEach(applyChipTransform);
 
   applyChipOwnersToPool();
   applyChipFacesToPool();
