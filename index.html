@@ -246,6 +246,13 @@
     pointer-events:none;
     z-index:500;
   }
+  .my-adopted-hand{
+    gap:3px;
+  }
+  .my-adopted-hand.adopted-hand{
+    position:static;
+    transform:none;
+  }
   .reveal-card{
     width:34px;
     height:52px;
@@ -394,7 +401,18 @@
 
   .my-hand-wrapper{margin-top:36px;text-align:center;}
   .my-hand-title{display:none;}
-  .my-hand{display:flex;justify-content:center;gap:8px;margin-top:6px;min-height:100px;}
+  .my-hand-row{
+    margin-top:6px;
+    display:inline-flex;
+    align-items:flex-start;
+    gap:10px;
+  }
+  .my-hand{display:flex;justify-content:center;gap:8px;margin-top:0;min-height:100px;}
+  .my-adopted-hand{
+    min-height:28px;
+    display:flex;
+    align-items:flex-start;
+  }
 
  /* =========================
      ：スペシャル1/5 手札の大小アニメ & ドラッグ状態
@@ -1447,7 +1465,10 @@ z-index: 10;
 
     <div class="my-hand-wrapper">
       <div class="my-hand-title">自分のカード</div>
-      <div id="myHand" class="my-hand"></div>
+      <div class="my-hand-row">
+        <div id="myHand" class="my-hand"></div>
+        <div id="myAdoptedHand" class="my-adopted-hand"></div>
+      </div>
     </div>
   </div>
 </main>
@@ -1687,6 +1708,7 @@ const seatLabel = seatPop.querySelector('label');
 
 const playerCircle = document.getElementById('playerCircle');
 const myHandEl = document.getElementById('myHand');
+const myAdoptedHandEl = document.getElementById('myAdoptedHand');
 
 /* ：中央テーブル（捨て札のドロップ判定に使う） */
 const centerTable = document.getElementById('centerTable');
@@ -5802,6 +5824,10 @@ function subscribeReveal(){
    ========================= */
 function renderMyHand(){
   myHandEl.innerHTML = '';
+  if (myAdoptedHandEl){
+    myAdoptedHandEl.innerHTML = '';
+    myAdoptedHandEl.className = 'my-adopted-hand';
+  }
 
   const myId = state.userId;
   
@@ -5843,6 +5869,21 @@ function renderMyHand(){
     const pickedEl = createCardElement(selection.code);
     picked.appendChild(pickedEl);
     myHandEl.prepend(picked);
+  }
+
+  if (myAdoptedHandEl && state.reveal?.revealed?.[myId]){
+    const board = getBoardCodes();
+    const best = bestHandFromCodes([...board, ...finalCards].filter(Boolean));
+    const adoptedCodes = best?.displayCodes || best?.bestFiveCodes || [];
+    if (adoptedCodes.length){
+      myAdoptedHandEl.className = 'my-adopted-hand adopted-hand';
+      adoptedCodes.forEach(code => {
+        const slot = document.createElement('div');
+        slot.className = 'adopted-card';
+        slot.appendChild(createCardElement(code));
+        myAdoptedHandEl.appendChild(slot);
+      });
+    }
   }
 }
 
