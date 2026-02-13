@@ -167,6 +167,17 @@
   transform:translateY(calc(-50% + 70px));
 }
 
+.player-wrap.line-top .player-tag,
+.player-wrap.line-top .owned-chips,
+.player-wrap.line-bottom .player-tag,
+.player-wrap.line-bottom .owned-chips{
+  transform:none;
+}
+.player-wrap.line-top .owned-chips,
+.player-wrap.line-bottom .owned-chips{
+  transform:translateY(-50%);
+}
+
 
   .player-tag.me{ background:#111;color:#fff;border-color:#111; }
 
@@ -1313,7 +1324,7 @@ z-index: 10;
      中央カードの上下ライン（調整用）
      ここだけ触れば高さ調整できます
      ========================= */
-  --middle-line-color: #000;
+  --middle-line-color: transparent;
   --middle-line-thickness: 2px;
   --middle-line-top-y: -87px;      /* 上の黒線の高さ（board-row上端から） */
   --middle-line-bottom-y: calc(100% + 52px); /* 下の黒線の高さ（board-row上端から） */
@@ -6007,49 +6018,95 @@ function renderPlayerCircle(players){
   `;
   playerCircle.appendChild(center);
 
+  const boardRow = center.querySelector('#boardRow');
+  const resolveLineYPercent = (cssVarName, fallback) => {
+    if (!boardRow) return fallback;
+    const marker = document.createElement('div');
+    marker.style.position = 'absolute';
+    marker.style.left = '0';
+    marker.style.top = `var(${cssVarName})`;
+    marker.style.width = '0';
+    marker.style.height = '0';
+    boardRow.appendChild(marker);
+
+    const circleRect = playerCircle.getBoundingClientRect();
+    const y = marker.getBoundingClientRect().top - circleRect.top;
+    marker.remove();
+
+    if (!circleRect.height) return fallback;
+    return Math.max(8, Math.min(92, (y / circleRect.height) * 100));
+  };
+
+  const lineTopY = resolveLineYPercent('--middle-line-top-y', 23);
+  const lineBottomY = resolveLineYPercent('--middle-line-bottom-y', 74);
+
   const n = players.length;
-  const radius = 45;
-  const step = (2 * Math.PI) / n;
-  const anchorAngle = Math.PI / 2;
   const meIndex = players.findIndex(p => p.id === state.userId);
+
+  const otherCount = Math.max(0, n - 1);
+  const distributionByPlayers = {
+    2: { top: 1, bottom: 0 },
+    3: { top: 2, bottom: 0 },
+    4: { top: 1, bottom: 2 },
+    5: { top: 2, bottom: 2 },
+    6: { top: 3, bottom: 2 }
+  };
+  const defaultBottom = otherCount >= 3 ? 2 : 0;
+  const distribution = distributionByPlayers[n] || {
+    top: Math.max(0, otherCount - defaultBottom),
+    bottom: Math.min(defaultBottom, otherCount)
+  };
+
+  const spreadX = (count, row) => {
+    if (count <= 0) return [];
+    if (count === 1) return [50];
+    const presets = row === 'top'
+      ? { 2: [5, 93], 3: [5, 50, 93] }
+      : { 2: [5, 93], 3: [5, 30, 93] };
+    if (presets[count]) return presets[count];
+    const left = 22;
+    const right = 78;
+    const step = (right - left) / (count - 1);
+    return Array.from({ length: count }, (_, i) => left + step * i);
+  };
+
+  const relativeOrder = players
+    .map((p, idx) => ({
+      player: p,
+      k: (meIndex === -1) ? idx : (idx - meIndex + n) % n
+    }))
+    .filter(item => item.player.id !== state.userId)
+    .sort((a, b) => a.k - b.k)
+    .map(item => item.player);
+
+  const topPlayers = relativeOrder.slice(0, distribution.top);
+  const bottomPlayers = relativeOrder.slice(distribution.top, distribution.top + distribution.bottom);
+  const layoutByPid = new Map();
+  spreadX(topPlayers.length, 'top').forEach((x, idx) => {
+    layoutByPid.set(topPlayers[idx].id, { x, y: lineTopY, rowClass: 'line-top' });
+  });
+  spreadX(bottomPlayers.length, 'bottom').forEach((x, idx) => {
+    layoutByPid.set(bottomPlayers[idx].id, { x, y: lineBottomY, rowClass: 'line-bottom' });
+  });
 
   const curRevealPid = getRevealCurrentPid();
   const revealedMap = state.reveal?.revealed || {};
 
   players.forEach((p, idx) => {
-    const k = (meIndex === -1) ? idx : (idx - meIndex + n) % n;
-    const angle = anchorAngle + step * k;
-
-    const x = 50 + radius * Math.cos(angle);
-    const y = 50 + radius * Math.sin(angle);
+    const isMe = p.id === state.userId;
+    const seatLayout = layoutByPid.get(p.id);
+    const x = isMe ? 50 : (seatLayout?.x ?? 50);
+    const y = isMe ? 94 : (seatLayout?.y ?? lineBottomY);
 
     const wrap = document.createElement('div');
     wrap.className = 'player-wrap';
-    if (Math.sin(angle) < -0.6) {
-      wrap.classList.add('top-seat');
-    }
+    if (seatLayout?.rowClass) wrap.classList.add(seatLayout.rowClass);
     wrap.style.left = `${x}%`;
     wrap.style.top = `${y}%`;
     wrap.dataset.pid = p.id;
+    wrap.style.transform = 'translate(-50%,-50%)';
 
-    /* ★変更：他プレイヤーだけ「wrapごと」外側＆上へ（チップもタグ横のまま） */
-    {
-      const circleRect = playerCircle.getBoundingClientRect();
-      const scale = (circleRect.width || 260) / 260;
-      const out = 35 * scale;
-      const up  = 35 * scale;
-
-      const dx = Math.cos(angle);
-      const dy = Math.sin(angle);
-
-      if (p.id !== state.userId){
-        wrap.style.transform = `translate(-50%,-50%) translate(${Math.round(dx*out)}px, ${Math.round(dy*out - up)}px)`;
-      } else {
-        wrap.style.transform = `translate(-50%,-50%)`;
-      }
-    }
-
-    if (p.id === state.userId){
+    if (isMe){
       const oc = document.createElement('div');
       oc.id = 'ownCircle';
       oc.className = 'owncircle' + (state.ownCircleVisible ? '' : ' hidden');
