@@ -393,14 +393,19 @@
   .owned-chip.draggable:active{ cursor:grabbing; }
 
   .my-hand-wrapper{margin-top:36px;text-align:center;}
-  .my-hand-row{display:flex;justify-content:center;align-items:flex-start;gap:14px;}
+  .my-hand-row{position:relative;display:inline-flex;align-items:flex-start;}
   .my-hand-title{display:none;}
   .my-hand{display:flex;justify-content:center;gap:8px;margin-top:6px;min-height:100px;}
   .my-adopted-hand{
-    margin-top:6px;
+    position:absolute;
+    left:calc(100% + 14px);
+    top:6px;
+    width:112px;
     min-height:36px;
+    box-sizing:border-box;
     display:flex;
     align-items:center;
+    justify-content:flex-start;
     gap:3px;
     padding:4px 5px;
     border-radius:8px;
