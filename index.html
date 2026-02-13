@@ -1626,6 +1626,8 @@ const roomInfo = document.getElementById('roomInfo');
 const roomInfoLobby = document.getElementById('roomInfoLobby');
 const copyLinkBtn = document.getElementById('copyLinkBtn');
 
+const USER_NAME_CACHE_KEY = 'gangpoker:userName';
+
 const hostSelectingPop = document.getElementById('hostSelectingPop');
 
 const seatPop = document.getElementById('seatPop');
@@ -5802,6 +5804,18 @@ function renderHands(){
 const urlParams = new URLSearchParams(window.location.search);
 const roomFromUrl = urlParams.get('room');
 if(roomFromUrl) inputCode.value = roomFromUrl;
+
+const cachedUserName = localStorage.getItem(USER_NAME_CACHE_KEY);
+if (cachedUserName) inputName.value = cachedUserName;
+
+inputName.addEventListener('input', () => {
+  const value = inputName.value.trim();
+  if (value) {
+    localStorage.setItem(USER_NAME_CACHE_KEY, value);
+    return;
+  }
+  localStorage.removeItem(USER_NAME_CACHE_KEY);
+});
 
 btnJoin.addEventListener('click', async () => {
   state.userName = inputName.value || '名無し';
