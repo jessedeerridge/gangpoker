@@ -229,12 +229,28 @@
     pointer-events:none;
     z-index:500; /* ：プールより上 */
   }
+  .player-tag .adopted-hand{
+    position:absolute;
+    left:calc(100% + 8px);
+    top:100%;
+    transform:translateY(6px);
+    display:flex;
+    gap:3px;
+    pointer-events:none;
+    z-index:500;
+  }
   .reveal-card{
     width:34px;
     height:52px;
   }
+  .adopted-card{
+    width:18px;
+    height:28px;
+  }
   .reveal-card .pcard,
-  .reveal-card .backcard{
+  .reveal-card .backcard,
+  .adopted-card .pcard,
+  .adopted-card .backcard{
     width:100% !important;
     height:100% !important;
     border-radius:6px !important;
@@ -6157,10 +6173,45 @@ function renderPlayerCircle(players){
 
     /* ★変更：公開済み表示は「自分以外だけ」 */
     if (isRevealed && p.id !== state.userId){
+      if (fanCount > 0){
+        const miniHand = document.createElement('div');
+        miniHand.className = 'mini-hand';
+
+        const spread = 70;
+        const base = (fanCount > 1) ? (-spread/2) : 0;
+
+        for (let idx2=0; idx2<fanCount; idx2++){
+          const card = document.createElement('div');
+          card.className = 'mini-card';
+          card.textContent = '';
+
+          const angleDeg = (fanCount > 1) ? base + (spread/(fanCount-1))*idx2 : 0;
+          card.style.transform = `translate(-50%,0) rotate(${angleDeg}deg)`;
+          card.style.zIndex = String(10 + idx2);
+          miniHand.appendChild(card);
+        }
+        tag.appendChild(miniHand);
+      }
+
+      const board = getBoardCodes();
+      const cards = (state.hands?.[p.id] && Array.isArray(state.hands[p.id].cards)) ? state.hands[p.id].cards : [];
+      const best = bestHandFromCodes([...board, ...cards].filter(Boolean));
+      const adoptedCodes = best?.displayCodes || best?.bestFiveCodes || [];
+      if (adoptedCodes.length){
+        const ah = document.createElement('div');
+        ah.className = 'adopted-hand';
+        adoptedCodes.forEach(code => {
+          const slot = document.createElement('div');
+          slot.className = 'adopted-card';
+          slot.appendChild(createCardElement(code));
+          ah.appendChild(slot);
+        });
+        tag.appendChild(ah);
+      }
+
       const rh = document.createElement('div');
       rh.className = 'reveal-hand';
 
-     const cards = (state.hands?.[p.id] && Array.isArray(state.hands[p.id].cards)) ? state.hands[p.id].cards : [];
       cards.forEach(code => {
         const slot = document.createElement('div');
         slot.className = 'reveal-card';
