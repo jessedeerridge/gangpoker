@@ -342,7 +342,7 @@
   .owned-chip.draggable{ cursor:grab; }
   .owned-chip.draggable:active{ cursor:grabbing; }
 
-  .my-hand-wrapper{margin-top:26px;text-align:center;}
+  .my-hand-wrapper{margin-top:36px;text-align:center;}
   .my-hand-title{display:none;}
   .my-hand{display:flex;justify-content:center;gap:8px;margin-top:6px;min-height:100px;}
 
@@ -6116,7 +6116,7 @@ function renderPlayerCircle(players){
     wrap.className = 'player-wrap';
     if (seatLayout?.rowClass) wrap.classList.add(seatLayout.rowClass);
     wrap.style.left = `${x}%`;
-    wrap.style.top = isMe ? `calc(${y}% + 35px)` : `${y}%`;
+    wrap.style.top = isMe ? `calc(${y}% + 45px)` : `${y}%`;
     wrap.dataset.pid = p.id;
     wrap.style.transform = 'translate(-50%,-50%)';
 
