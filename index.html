@@ -393,8 +393,25 @@
   .owned-chip.draggable:active{ cursor:grabbing; }
 
   .my-hand-wrapper{margin-top:36px;text-align:center;}
+  .my-hand-row{display:flex;justify-content:center;align-items:flex-start;gap:14px;}
   .my-hand-title{display:none;}
   .my-hand{display:flex;justify-content:center;gap:8px;margin-top:6px;min-height:100px;}
+  .my-adopted-hand{
+    margin-top:6px;
+    min-height:36px;
+    display:flex;
+    align-items:center;
+    gap:3px;
+    padding:4px 5px;
+    border-radius:8px;
+    border:1px solid rgba(255,255,255,.22);
+    background:
+      radial-gradient(circle at 25% 20%, rgba(255,255,255,.20), rgba(255,255,255,0) 55%),
+      linear-gradient(180deg, rgba(15,15,20,.92), rgba(10,10,14,.90));
+    box-shadow:0 8px 18px rgba(0,0,0,.45);
+    visibility:hidden;
+  }
+  .my-adopted-hand.visible{ visibility:visible; }
 
  /* =========================
      ：スペシャル1/5 手札の大小アニメ & ドラッグ状態
@@ -1447,7 +1464,10 @@ z-index: 10;
 
     <div class="my-hand-wrapper">
       <div class="my-hand-title">自分のカード</div>
-      <div id="myHand" class="my-hand"></div>
+      <div class="my-hand-row">
+        <div id="myHand" class="my-hand"></div>
+        <div id="myAdoptedHand" class="my-adopted-hand" aria-label="自分のadoptedカード"></div>
+      </div>
     </div>
   </div>
 </main>
@@ -1687,6 +1707,7 @@ const seatLabel = seatPop.querySelector('label');
 
 const playerCircle = document.getElementById('playerCircle');
 const myHandEl = document.getElementById('myHand');
+const myAdoptedHandEl = document.getElementById('myAdoptedHand');
 
 /* ：中央テーブル（捨て札のドロップ判定に使う） */
 const centerTable = document.getElementById('centerTable');
@@ -5846,8 +5867,35 @@ function renderMyHand(){
   }
 }
 
+function renderMyAdoptedHand(){
+  if (!myAdoptedHandEl) return;
+
+  myAdoptedHandEl.innerHTML = '';
+  myAdoptedHandEl.classList.remove('visible');
+
+  const myId = state.userId;
+  const isRevealed = !!state.reveal?.revealed?.[myId];
+  if (!isRevealed) return;
+
+  const cards = (state.hands?.[myId] && Array.isArray(state.hands[myId].cards)) ? state.hands[myId].cards : [];
+  const board = getBoardCodes();
+  const best = bestHandFromCodes([...board, ...cards].filter(Boolean));
+  const adoptedCodes = best?.displayCodes || best?.bestFiveCodes || [];
+  if (!adoptedCodes.length) return;
+
+  adoptedCodes.forEach(code => {
+    const slot = document.createElement('div');
+    slot.className = 'adopted-card';
+    slot.appendChild(createCardElement(code));
+    myAdoptedHandEl.appendChild(slot);
+  });
+
+  myAdoptedHandEl.classList.add('visible');
+}
+
 function renderHands(){
   renderMyHand();
+  renderMyAdoptedHand();
   if (latestPlayers.length) renderPlayerCircle(latestPlayers);
 }
 
