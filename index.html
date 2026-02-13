@@ -181,14 +181,6 @@
 
   .player-tag.me{ background:#111;color:#fff;border-color:#111; }
 
-  /* 自分の表示だけ少し下げる */
-  .player-wrap.is-me .player-tag{
-    transform:translateY(26px);
-  }
-  .player-wrap.is-me .owned-chips{
-    transform:translateY(calc(-50% + 26px));
-  }
-
   /* ：公開ターンの強調（現在の番） */
   .player-tag.turn{
     outline:2px solid #16a34a;
@@ -6108,10 +6100,9 @@ function renderPlayerCircle(players){
 
     const wrap = document.createElement('div');
     wrap.className = 'player-wrap';
-    if (isMe) wrap.classList.add('is-me');
     if (seatLayout?.rowClass) wrap.classList.add(seatLayout.rowClass);
     wrap.style.left = `${x}%`;
-    wrap.style.top = `${y}%`;
+    wrap.style.top = isMe ? `calc(${y}% + 25px)` : `${y}%`;
     wrap.dataset.pid = p.id;
     wrap.style.transform = 'translate(-50%,-50%)';
 
